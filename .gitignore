@@ -1,0 +1,51 @@
+# Node.js dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Build output
+dist/
+build/
+out/
+coverage/
+
+# IDE files
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+
+# Misc
+*.swp
+*.bak
+*.tmp
+*.orig
+
+# Temporary files
+*.temp
+*.cache
+# Dependency directories
+bower_components/
+# Compiled source
+*.tsbuildinfo
+# TypeScript cache
+*.tscache
+
+package-lock.json
+yarn.lock
+
+chat2sheet-469716-1bebf546c040.json
