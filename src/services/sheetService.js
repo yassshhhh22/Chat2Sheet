@@ -1,7 +1,7 @@
 import { google } from "googleapis";
 
 const auth = new google.auth.GoogleAuth({
-  keyFile: "credentials.json", // Google Service Account JSON
+  keyFile: process.env.GOOGLE_CREDENTIALS_FILE || "chat2sheet-469716-1bebf546c040.json", // Fixed: Use correct credentials file
   scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
 
@@ -53,8 +53,6 @@ export const processAIData = async (parsedData) => {
 
     // Track processed installments to avoid duplicates
     const processedInstallments = new Set();
-
-    // Initialize studentsToUpdate Set at the beginning
     const studentsToUpdate = new Set();
 
     // 1. Process Students data (new student creation)
@@ -73,39 +71,39 @@ export const processAIData = async (parsedData) => {
           results.students.push(studentResult);
           console.log("✅ Student added:", studentResult);
 
-          // Add new student to update list
           if (studentResult.success && studentResult.stud_id) {
             studentsToUpdate.add(studentResult.stud_id);
           }
 
-          // Check if this student has an immediate installment payment
+          // Check for immediate installment
           const immediateInstallmentIndex = parsedData.Installments?.findIndex(
             (inst) =>
               inst.name === studentData.name ||
               inst.stud_id === studentResult.stud_id
           );
 
-          if (
-            immediateInstallmentIndex !== -1 &&
-            immediateInstallmentIndex !== undefined
-          ) {
-            const immediateInstallment =
-              parsedData.Installments[immediateInstallmentIndex];
-            console.log(
-              "💰 Processing immediate installment for new student..."
-            );
+          if (immediateInstallmentIndex !== -1) {
+            const immediateInstallment = parsedData.Installments[immediateInstallmentIndex];
+            console.log("💰 Processing immediate installment for new student...");
 
             try {
               const installmentData = {
                 ...immediateInstallment,
-                stud_id: studentResult.stud_id || immediateInstallment.stud_id,
+                stud_id: studentResult.stud_id,
+                name: studentData.name,
+                class: studentData.class,
+                date: immediateInstallment.date || new Date().toISOString().split("T")[0], // Auto-generate date
+                recorded_by: immediateInstallment.recorded_by || "system",
               };
 
               const installmentResult = await addInstallment(installmentData);
               results.installments.push(installmentResult);
-
-              // Mark this installment as processed
               processedInstallments.add(immediateInstallmentIndex);
+
+              // Add to update list
+              if (installmentResult.success) {
+                studentsToUpdate.add(studentResult.stud_id);
+              }
 
               console.log("✅ Immediate installment added:", installmentResult);
             } catch (error) {
@@ -128,30 +126,35 @@ export const processAIData = async (parsedData) => {
       }
     }
 
-    // 2. Process remaining Installments data (those not processed with students)
+    // 2. Process remaining Installments data
     if (parsedData.Installments && parsedData.Installments.length > 0) {
       console.log("💰 Processing remaining Installments data...");
 
       for (let index = 0; index < parsedData.Installments.length; index++) {
         const installmentData = parsedData.Installments[index];
 
-        // Skip if this installment was already processed
         if (processedInstallments.has(index)) {
-          console.log(
-            "⏭️ Skipping already processed installment at index:",
-            index
-          );
+          console.log("⏭️ Skipping already processed installment at index:", index);
           continue;
         }
 
         try {
-          const installmentResult = await addInstallment(installmentData);
+          // Ensure required fields are populated with auto-generated values
+          const completeInstallmentData = {
+            ...installmentData,
+            date: installmentData.date || new Date().toISOString().split("T")[0], // Auto-generate date
+            mode: installmentData.mode || "cash", // Default payment mode
+            remarks: installmentData.remarks || "",
+            recorded_by: installmentData.recorded_by || "system",
+          };
+
+          const installmentResult = await addInstallment(completeInstallmentData);
           results.installments.push(installmentResult);
           console.log("✅ Installment added:", installmentResult);
 
           // Add student ID to update set if installment was successful
-          if (installmentResult.success && installmentData.stud_id) {
-            studentsToUpdate.add(installmentData.stud_id);
+          if (installmentResult.success && installmentResult.stud_id) {
+            studentsToUpdate.add(installmentResult.stud_id);
           }
         } catch (error) {
           console.error("❌ Error adding installment:", error);
@@ -164,12 +167,11 @@ export const processAIData = async (parsedData) => {
       }
     }
 
-    // 3. Process any additional Logs data from AI (if not already logged by controllers)
+    // 3. Process Logs data
     if (parsedData.Logs && parsedData.Logs.length > 0) {
       console.log("📋 Processing additional Logs data...");
       for (const logData of parsedData.Logs) {
         try {
-          // Only add logs that aren't automatically generated by other operations
           if (!logData.action?.includes("auto_generated")) {
             const logResult = await logAction(
               logData.action,
@@ -194,10 +196,8 @@ export const processAIData = async (parsedData) => {
       }
     }
 
-    // 4. Update fees summary for any students mentioned
-    // Remove the duplicate declaration of studentsToUpdate
-
-    // Update fees summary for each student
+    // 4. Update fees summary for all affected students
+    console.log("🔄 Updating fees summary for students:", Array.from(studentsToUpdate));
     for (const studId of studentsToUpdate) {
       try {
         const updateResult = await updateFeesSummary(studId);

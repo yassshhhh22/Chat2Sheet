@@ -93,26 +93,30 @@ export async function addInstallment(data) {
       throw new Error(`Student ${data.stud_id || data.name} not found`);
     }
 
-    // 1. Prepare installment data with all required fields
+    // Prepare installment data with auto-generated fields
     const installmentData = {
       stud_id: student.stud_id,
       name: student.name,
       class: student.class,
       installment_amount: data.installment_amount || data.amount || "0",
-      date: data.date || new Date().toISOString().split("T")[0],
-      mode: data.mode || "cash",
+      date: data.date || new Date().toISOString().split("T")[0], // Auto-generate current date
+      mode: data.mode || "cash", // Default payment mode
       remarks: data.remarks || "",
-      recorded_by: data.recorded_by || "system",
-      created_at: new Date().toISOString(),
+      recorded_by: data.recorded_by || "system", // Auto-set recorded_by
+      created_at: new Date().toISOString(), // Auto-generate timestamp
     };
 
-    // 2. Add installment to Installments sheet
+    console.log("📝 Prepared installment data:", installmentData);
+
+    // Add installment to Installments sheet
     const instId = await addInstallmentToSheet(installmentData);
+    console.log("✅ Installment added to sheet with ID:", instId);
 
-    // 3. Update fees summary (recalculate totals)
-    await updateFeesSummary(student.stud_id);
+    // Update fees summary (recalculate totals)
+    await updateFeesSummaryTotals(student.stud_id);
+    console.log("✅ Fees summary updated for student:", student.stud_id);
 
-    // 4. Log the action
+    // Log the action
     await logAction(
       "add_installment",
       student.stud_id,
@@ -133,9 +137,13 @@ export async function addInstallment(data) {
         stud_id: student.stud_id,
         amount: installmentData.installment_amount,
         student_name: student.name,
+        date: installmentData.date,
+        mode: installmentData.mode,
       },
     };
   } catch (error) {
+    console.error("❌ Error in addInstallment:", error);
+
     // Log the error
     await logAction(
       "add_installment",
