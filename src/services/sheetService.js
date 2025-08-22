@@ -9,6 +9,31 @@ const sheets = google.sheets({ version: "v4", auth });
 
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID;
 
+// Remove due date and last payment date fields from fee sheet operations
+function createFeeSheetHeaders() {
+  return [
+    "Student Name",
+    "Roll Number",
+    "Class",
+    "Fee Amount",
+    "Payment Status",
+    "Remarks",
+    // Removed: 'Due Date', 'Last Payment Date'
+  ];
+}
+
+function formatFeeSheetData(studentData) {
+  return studentData.map((student) => [
+    student.name,
+    student.rollNumber,
+    student.class,
+    student.feeAmount,
+    student.paymentStatus,
+    student.remarks,
+    // Removed: student.dueDate, student.lastPaymentDate
+  ]);
+}
+
 // Main function to process AI-parsed data
 export const processAIData = async (parsedData) => {
   try {

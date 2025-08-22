@@ -33,8 +33,6 @@ The schemas are strict and persistent — do not add or remove fields.
    E1: total_paid
    F1: balance
    G1: status
-   H1: due_date
-   I1: last_payment_date
 
 3. **Installments Sheet**
    A1: inst_id

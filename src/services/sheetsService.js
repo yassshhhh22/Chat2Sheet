@@ -187,14 +187,13 @@ export async function addFeesSummaryRecord(studId, name, className, totalFees) {
         `=SUMIF(Installment_details!B:B,"${studId}",Installment_details!E:E)`, // total_paid formula
         `=D${rowIndex}-E${rowIndex}`, // balance formula
         `=IF(F${rowIndex}<=0,"Paid",IF(E${rowIndex}>0,"Partial","Pending"))`, // status formula
-        "", // due_date
-        `=IFERROR(MAX(FILTER(Installment_details!F:F, Installment_details!B:B="${studId}")),"")`, // last_payment_date formula
+        // Removed: due_date and last_payment_date columns
       ],
     ];
 
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.FEES_SUMMARY}!A:I`,
+      range: `${SHEETS.FEES_SUMMARY}!A:G`, // Changed from A:I to A:G (removed 2 columns)
       valueInputOption: "USER_ENTERED",
       requestBody: { values },
     });
@@ -309,7 +308,7 @@ export async function updateFeesSummaryTotals(studId) {
     // Find the fees summary row for this student
     const feesResponse = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${SHEETS.FEES_SUMMARY}!A:I`,
+      range: `${SHEETS.FEES_SUMMARY}!A:G`, // Changed from A:I to A:G
     });
 
     const feesRows = feesResponse.data.values || [];
@@ -322,7 +321,7 @@ export async function updateFeesSummaryTotals(studId) {
       const status =
         balance <= 0 ? "Paid" : totalPaid > 0 ? "Partial" : "Pending";
 
-      // Update the row
+      // Update the row (only columns E, F, G - removed H and I)
       await sheets.spreadsheets.values.update({
         spreadsheetId: SPREADSHEET_ID,
         range: `${SHEETS.FEES_SUMMARY}!E${rowNum}:G${rowNum}`,

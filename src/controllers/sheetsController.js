@@ -27,8 +27,6 @@ export async function addStudent(data) {
       total_paid: "0",
       balance: data.total_fees || "0",
       status: "unpaid",
-      due_date: "",
-      last_payment_date: "",
     };
 
     await addFeesSummaryRecord(
