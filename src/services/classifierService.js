@@ -1,10 +1,36 @@
 import Groq from "groq-sdk";
 import "dotenv/config";
+import { hasPendingConfirmation } from "./aiService.js";
 
 const apiKey = process.env.GROQ_API_KEY;
 const groq = new Groq({ apiKey });
 
-export async function classifyMessage(userMessage) {
+// Add confirmation detection
+export async function classifyMessage(userMessage, phoneNumber) {
+  // Check if user has pending confirmation
+  if (hasPendingConfirmation(phoneNumber)) {
+    const normalizedMessage = userMessage.trim().toLowerCase();
+
+    if (["yes", "y", "confirm", "ok", "proceed"].includes(normalizedMessage)) {
+      return {
+        intent: "CONFIRMATION_YES",
+        confidence: 1.0,
+      };
+    } else if (
+      ["no", "n", "cancel", "stop", "abort"].includes(normalizedMessage)
+    ) {
+      return {
+        intent: "CONFIRMATION_NO",
+        confidence: 1.0,
+      };
+    } else {
+      return {
+        intent: "CONFIRMATION_INVALID",
+        confidence: 1.0,
+      };
+    }
+  }
+
   const prompt = `Classify this message and return ONLY a JSON object with operation and confidence:
 
 Message: "${userMessage}"

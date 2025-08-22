@@ -235,3 +235,124 @@ Input: ${userMessage}
     };
   }
 }
+
+// Add confirmation state management
+const pendingConfirmations = new Map();
+
+// Add helper function to format data
+const formatDataForConfirmation = (data, operation) => {
+  if (Array.isArray(data)) {
+    return data
+      .map(
+        (row, index) =>
+          `Row ${index + 1}: ${Object.entries(row)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join(", ")}`
+      )
+      .join("\n");
+  } else if (typeof data === "object") {
+    return Object.entries(data)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join("\n");
+  }
+  return JSON.stringify(data, null, 2);
+};
+
+// Add function to handle confirmation responses
+export const handleConfirmationResponse = async (phoneNumber, response) => {
+  const pendingConfirmation = pendingConfirmations.get(phoneNumber);
+
+  if (!pendingConfirmation) {
+    return {
+      error: true,
+      message: "No pending confirmation found.",
+    };
+  }
+
+  const normalizedResponse = response.trim().toLowerCase();
+
+  if (normalizedResponse === "yes" || normalizedResponse === "y") {
+    // Remove from pending and proceed with operation
+    pendingConfirmations.delete(phoneNumber);
+
+    return {
+      confirmed: true,
+      data: pendingConfirmation.data,
+      operation: pendingConfirmation.operation,
+      message: "✅ Confirmed! Processing your request...",
+    };
+  } else if (normalizedResponse === "no" || normalizedResponse === "n") {
+    // Remove from pending and cancel
+    pendingConfirmations.delete(phoneNumber);
+
+    return {
+      confirmed: false,
+      message: "❌ Operation cancelled.",
+    };
+  } else {
+    return {
+      error: true,
+      message: "Please reply with *YES* to confirm or *NO* to cancel.",
+    };
+  }
+};
+
+// Add function to check if user has pending confirmation
+export const hasPendingConfirmation = (phoneNumber) => {
+  return pendingConfirmations.has(phoneNumber);
+};
+
+// Add this function to handle confirmation requests
+export const requestWriteConfirmation = async (
+  phoneNumber,
+  data,
+  operation
+) => {
+  const confirmationId = `confirm_${Date.now()}_${Math.random()
+    .toString(36)
+    .substr(2, 9)}`;
+
+  pendingConfirmations.set(phoneNumber, {
+    id: confirmationId,
+    data: data,
+    operation: operation,
+    timestamp: Date.now(),
+  });
+
+  // Better formatting for WhatsApp
+  let dataPreview = "";
+
+  if (data.Students && data.Students.length > 0) {
+    const student = data.Students[0];
+    dataPreview += `👨‍🎓 *New Student:*\n`;
+    dataPreview += `• Name: ${student.name}\n`;
+    dataPreview += `• Class: ${student.class}\n`;
+    dataPreview += `• Parent: ${student.parent_name}\n`;
+    dataPreview += `• Phone: ${student.phone_no}\n`;
+    if (student.email) dataPreview += `• Email: ${student.email}\n`;
+  }
+
+  if (data.Fees && data.Fees.length > 0) {
+    const fee = data.Fees[0];
+    dataPreview += `\n💰 *Fee Details:*\n`;
+    dataPreview += `• Total Fees: ₹${fee.total_fees}\n`;
+  }
+
+  if (data.Installments && data.Installments.length > 0) {
+    const inst = data.Installments[0];
+    dataPreview += `\n💳 *Payment:*\n`;
+    dataPreview += `• Amount: ₹${inst.installment_amount}\n`;
+    dataPreview += `• Student ID: ${inst.stud_id}\n`;
+  }
+
+  const confirmationMessage =
+    `⚠️ *Confirmation Required*\n\n` +
+    `${dataPreview}\n` +
+    `Reply *YES* to confirm or *NO* to cancel.`;
+
+  return {
+    requiresConfirmation: true,
+    confirmationMessage: confirmationMessage,
+    confirmationId: confirmationId,
+  };
+};

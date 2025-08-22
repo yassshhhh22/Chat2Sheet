@@ -7,6 +7,11 @@ import {
   addLogToSheet,
   updateFeesSummaryTotals,
 } from "../services/sheetsService.js";
+import {
+  requestWriteConfirmation,
+  handleConfirmationResponse,
+  hasPendingConfirmation,
+} from "../services/aiService.js";
 
 export async function addStudent(data) {
   try {
@@ -316,3 +321,127 @@ export async function processCompleteAIData(parsedData, rawMessage) {
     throw error;
   }
 }
+
+// Modify existing write operations to require confirmation
+export const createData = async (req, res) => {
+  try {
+    const { phoneNumber, data, sheetName } = req.body;
+
+    // Check if this is a confirmation response
+    if (hasPendingConfirmation(phoneNumber)) {
+      const confirmationResult = await handleConfirmationResponse(
+        phoneNumber,
+        data
+      );
+
+      if (confirmationResult.error) {
+        return res.status(400).json({
+          success: false,
+          message: confirmationResult.message,
+        });
+      }
+
+      if (!confirmationResult.confirmed) {
+        return res.status(200).json({
+          success: true,
+          message: confirmationResult.message,
+        });
+      }
+
+      // Proceed with actual data creation
+      const result = await sheetsService.createData(
+        confirmationResult.data,
+        sheetName
+      );
+      return res.status(200).json({
+        success: true,
+        message:
+          confirmationResult.message +
+          "\n\n" +
+          "Data has been successfully added to the sheet.",
+        data: result,
+      });
+    }
+
+    // Request confirmation for new write operation
+    const confirmationRequest = await requestWriteConfirmation(
+      phoneNumber,
+      data,
+      "CREATE"
+    );
+
+    return res.status(200).json({
+      success: true,
+      requiresConfirmation: true,
+      message: confirmationRequest.confirmationMessage,
+    });
+  } catch (error) {
+    logger.error("Error in createData:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to process create request",
+    });
+  }
+};
+
+export const updateData = async (req, res) => {
+  try {
+    const { phoneNumber, data, sheetName, conditions } = req.body;
+
+    // Check if this is a confirmation response
+    if (hasPendingConfirmation(phoneNumber)) {
+      const confirmationResult = await handleConfirmationResponse(
+        phoneNumber,
+        data
+      );
+
+      if (confirmationResult.error) {
+        return res.status(400).json({
+          success: false,
+          message: confirmationResult.message,
+        });
+      }
+
+      if (!confirmationResult.confirmed) {
+        return res.status(200).json({
+          success: true,
+          message: confirmationResult.message,
+        });
+      }
+
+      // Proceed with actual data update
+      const result = await sheetsService.updateData(
+        confirmationResult.data,
+        sheetName,
+        conditions
+      );
+      return res.status(200).json({
+        success: true,
+        message:
+          confirmationResult.message +
+          "\n\n" +
+          "Data has been successfully updated in the sheet.",
+        data: result,
+      });
+    }
+
+    // Request confirmation for new write operation
+    const confirmationRequest = await requestWriteConfirmation(
+      phoneNumber,
+      data,
+      "UPDATE"
+    );
+
+    return res.status(200).json({
+      success: true,
+      requiresConfirmation: true,
+      message: confirmationRequest.confirmationMessage,
+    });
+  } catch (error) {
+    logger.error("Error in updateData:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to process update request",
+    });
+  }
+};

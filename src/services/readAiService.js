@@ -25,12 +25,21 @@ export async function parseReadRequest(userMessage) {
 
 User Query: "${userMessage}"
 
-Determine the query type and extract parameters. Return JSON in this exact format:
+CRITICAL CLASSIFICATION RULES:
+- If query mentions a student ID (STU1234, STU1235, etc.) or asks for payments "by/of/for [student_id]" -> use "stud_id" parameter, NOT date_filter
+- Student IDs always start with "STU" followed by numbers
+- Only use "date_filter" for actual dates (2025-08-22, today, yesterday, etc.)
+- "all payments by STU1235" = student query, NOT date query
+
+Query Types and Format:
+
+For payment history by student:
+{"query_type": "payment_history", "parameters": {"stud_id": "STU123", "name": "", "class": ""}, "output_format": "detailed"}
 
 For date-based payment queries:
 {"query_type": "payment_history", "parameters": {"date_filter": "2025-08-22", "date_range": {"start": "2025-08-22", "end": "2025-08-22"}}, "output_format": "detailed"}
 
-For individual student details: 
+For individual student details:
 {"query_type": "student_details", "parameters": {"stud_id": "STU123", "name": "", "class": ""}, "output_format": "detailed"}
 
 For individual fee status:
@@ -45,14 +54,12 @@ For aggregate/summary queries:
 For student search by name:
 {"query_type": "student_search", "parameters": {"stud_id": "", "name": "John", "class": ""}, "output_format": "list"}
 
-For payment history:
-{"query_type": "payment_history", "parameters": {"stud_id": "STU123", "name": "", "class": ""}, "output_format": "detailed"}
-
-IMPORTANT CLASSIFICATION RULES:
-- "payments received on [date]" or "payments on [date]" -> use "payment_history" with date_filter
-- "payments between [date1] and [date2]" -> use "payment_history" with date_range
-- "students in class X" -> use "class_report"
-- "total students with [fee criteria]" -> use "aggregate_summary"
+EXAMPLES:
+- "payment history of STU1235" → {"query_type": "payment_history", "parameters": {"stud_id": "STU1235", "name": "", "class": ""}, "output_format": "detailed"}
+- "all payments by STU1235" → {"query_type": "payment_history", "parameters": {"stud_id": "STU1235", "name": "", "class": ""}, "output_format": "detailed"}
+- "payments received on 2025-08-22" → {"query_type": "payment_history", "parameters": {"date_filter": "2025-08-22", "date_range": {}}, "output_format": "detailed"}
+- "payments today" → {"query_type": "payment_history", "parameters": {"date_filter": "today", "date_range": {}}, "output_format": "detailed"}
+- "students in class 11" → {"query_type": "class_report", "parameters": {"class": "11"}, "output_format": "list"}
 
 RETURN ONLY THE JSON OBJECT, NO OTHER TEXT.`;
 
@@ -92,7 +99,7 @@ RETURN ONLY THE JSON OBJECT, NO OTHER TEXT.`;
     // Validate the response structure
     const validQueryTypes = [
       "student_search",
-      "fee_status", 
+      "fee_status",
       "payment_history",
       "student_details",
       "class_report",
@@ -139,7 +146,9 @@ function createFallbackResponse(userMessage) {
   };
 
   // Check for class queries first (BEFORE aggregate)
-  const classMatch = userMessage.match(/class\s+(\d+)|students\s+in\s+class\s+(\d+)/i);
+  const classMatch = userMessage.match(
+    /class\s+(\d+)|students\s+in\s+class\s+(\d+)/i
+  );
   if (classMatch) {
     const classNumber = classMatch[1] || classMatch[2];
     fallbackResult.query_type = "class_report";
@@ -149,23 +158,27 @@ function createFallbackResponse(userMessage) {
   }
 
   // Check for aggregate queries
-  const aggregateKeywords = /total|count|all students|how many|list of students/i;
+  const aggregateKeywords =
+    /total|count|all students|how many|list of students/i;
   const feeKeywords = /fee|paid|balance|outstanding|pending/i;
   const amountMatch = userMessage.match(/(\d+)/);
 
   if (aggregateKeywords.test(userMessage) && feeKeywords.test(userMessage)) {
     fallbackResult.query_type = "aggregate_summary";
-    
+
     if (userMessage.includes("less than") && amountMatch) {
       fallbackResult.parameters.criteria = `paid_less_than_${amountMatch[1]}`;
       fallbackResult.parameters.amount = amountMatch[1];
     } else if (userMessage.includes("more than") && amountMatch) {
       fallbackResult.parameters.criteria = `balance_more_than_${amountMatch[1]}`;
       fallbackResult.parameters.amount = amountMatch[1];
-    } else if (userMessage.includes("outstanding") || userMessage.includes("pending")) {
+    } else if (
+      userMessage.includes("outstanding") ||
+      userMessage.includes("pending")
+    ) {
       fallbackResult.parameters.criteria = "outstanding_fees";
     }
-    
+
     console.log("🔧 Created aggregate fallback response:", fallbackResult);
     return fallbackResult;
   }
