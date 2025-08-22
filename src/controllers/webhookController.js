@@ -1,5 +1,5 @@
 import { parseMessageWithAI } from "../services/aiService.js";
-import { updateSheet } from "../services/sheetService.js";
+import { processAIData } from "../services/sheetService.js";
 import { logAction } from "./sheetsController.js";
 
 export const handleIncomingMessage = async (req, res) => {
@@ -25,8 +25,8 @@ export const handleIncomingMessage = async (req, res) => {
     parsedData = await parseMessageWithAI(text);
     console.log("🤖 Parsed:", parsedData);
 
-    // Push data to Google Sheets using new service
-    const result = await updateSheet(parsedData);
+    // Push data to Google Sheets using AI processing service
+    const result = await processAIData(parsedData);
 
     // Log successful action
     await logAction(

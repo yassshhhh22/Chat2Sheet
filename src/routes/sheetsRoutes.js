@@ -1,76 +1,29 @@
 import express from "express";
-import {
-  addStudent,
-  addInstallment,
-  updateFeesSummary,
-  logAction,
-} from "../controllers/sheetsController.js";
+import { processAIData } from "../services/sheetService.js";
 
 const router = express.Router();
 
-// Add student route
-router.post("/students/add", async (req, res) => {
+// Process AI-parsed data (comprehensive route for all data types)
+router.post("/process-ai-data", async (req, res) => {
   try {
-    const result = await addStudent(req.body);
-    res.status(201).json(result);
-  } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-});
+    console.log("🤖 Processing AI-parsed data:", req.body);
+    const result = await processAIData(req.body);
 
-// Add installment route
-router.post("/installments/add", async (req, res) => {
-  try {
-    const result = await addInstallment(req.body);
-    res.status(201).json(result);
+    if (result.success) {
+      res.status(201).json({
+        success: true,
+        message: "AI data processed successfully",
+        data: result,
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: result.message,
+        data: result,
+      });
+    }
   } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-});
-
-// Update fees summary route
-router.put("/fees-summary/:studId", async (req, res) => {
-  try {
-    const result = await updateFeesSummary(req.params.studId);
-    res.status(200).json(result);
-  } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: error.message,
-    });
-  }
-});
-
-// Manual log action route (for testing)
-router.post("/logs/add", async (req, res) => {
-  try {
-    const {
-      action,
-      stud_id,
-      raw_message,
-      parsed_json,
-      result,
-      error_msg,
-      performed_by,
-    } = req.body;
-    const logResult = await logAction(
-      action,
-      stud_id,
-      raw_message,
-      parsed_json,
-      result,
-      error_msg,
-      performed_by
-    );
-    res.status(201).json(logResult);
-  } catch (error) {
-    res.status(400).json({
+    res.status(500).json({
       success: false,
       message: error.message,
     });
