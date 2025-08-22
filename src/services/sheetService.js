@@ -54,6 +54,9 @@ export const processAIData = async (parsedData) => {
     // Track processed installments to avoid duplicates
     const processedInstallments = new Set();
 
+    // Initialize studentsToUpdate Set at the beginning
+    const studentsToUpdate = new Set();
+
     // 1. Process Students data (new student creation)
     if (parsedData.Students && parsedData.Students.length > 0) {
       console.log("📝 Processing Students data...");
@@ -69,6 +72,11 @@ export const processAIData = async (parsedData) => {
           const studentResult = await addStudent(completeStudentData);
           results.students.push(studentResult);
           console.log("✅ Student added:", studentResult);
+
+          // Add new student to update list
+          if (studentResult.success && studentResult.stud_id) {
+            studentsToUpdate.add(studentResult.stud_id);
+          }
 
           // Check if this student has an immediate installment payment
           const immediateInstallmentIndex = parsedData.Installments?.findIndex(
@@ -124,20 +132,27 @@ export const processAIData = async (parsedData) => {
     if (parsedData.Installments && parsedData.Installments.length > 0) {
       console.log("💰 Processing remaining Installments data...");
 
-      parsedData.Installments.forEach(async (installmentData, index) => {
+      for (let index = 0; index < parsedData.Installments.length; index++) {
+        const installmentData = parsedData.Installments[index];
+
         // Skip if this installment was already processed
         if (processedInstallments.has(index)) {
           console.log(
             "⏭️ Skipping already processed installment at index:",
             index
           );
-          return;
+          continue;
         }
 
         try {
           const installmentResult = await addInstallment(installmentData);
           results.installments.push(installmentResult);
           console.log("✅ Installment added:", installmentResult);
+
+          // Add student ID to update set if installment was successful
+          if (installmentResult.success && installmentData.stud_id) {
+            studentsToUpdate.add(installmentData.stud_id);
+          }
         } catch (error) {
           console.error("❌ Error adding installment:", error);
           results.installments.push({
@@ -146,7 +161,7 @@ export const processAIData = async (parsedData) => {
             data: installmentData,
           });
         }
-      });
+      }
     }
 
     // 3. Process any additional Logs data from AI (if not already logged by controllers)
@@ -180,14 +195,7 @@ export const processAIData = async (parsedData) => {
     }
 
     // 4. Update fees summary for any students mentioned
-    const studentsToUpdate = new Set();
-
-    // Collect student IDs from installments
-    if (parsedData.Installments) {
-      parsedData.Installments.forEach((inst) => {
-        if (inst.stud_id) studentsToUpdate.add(inst.stud_id);
-      });
-    }
+    // Remove the duplicate declaration of studentsToUpdate
 
     // Update fees summary for each student
     for (const studId of studentsToUpdate) {
