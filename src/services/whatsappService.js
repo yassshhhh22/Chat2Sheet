@@ -78,6 +78,7 @@ export async function sendReadResponse(to, result) {
 
     switch (result.query_type) {
       case "student_details":
+      case "student_info": // Handle both types
         if (result.data) {
           message += `👨‍🎓 *Student Details:*\n`;
           message += `• ID: ${result.data.stud_id}\n`;
@@ -105,15 +106,55 @@ export async function sendReadResponse(to, result) {
 
       case "payment_history":
         if (result.data && result.data.length > 0) {
-          message += `📈 *Payment History:*\n`;
-          result.data.forEach((payment) => {
-            message += `• ${payment.date}: ₹${payment.amount} (${payment.mode})\n`;
-          });
-          const total = result.data.reduce(
-            (sum, payment) => sum + parseFloat(payment.amount || 0),
-            0
+          // Check if this is a date-based query (multiple students) or individual student
+          const isDateBased = result.data.some(
+            (payment) => payment.parent_name !== undefined
           );
-          message += `\n💰 Total Paid: ₹${total}`;
+
+          if (isDateBased) {
+            // Date-based payment report
+            message += `📅 *Payments Report:*\n`;
+            message += `📈 *Total Payments:* ${result.data.length}\n\n`;
+
+            let totalAmount = 0;
+            result.data.forEach((payment, index) => {
+              const amount = parseFloat(payment.installment_amount || 0);
+              totalAmount += amount;
+
+              message += `${index + 1}. ${payment.name} (${payment.stud_id})\n`;
+              message += `   🆔 Installment ID: ${payment.inst_id}\n`;
+              message += `   💰 Amount: ₹${payment.installment_amount}\n`;
+              message += `   📅 Date: ${payment.date}\n`;
+              message += `   💳 Mode: ${payment.mode}\n`;
+              if (payment.remarks)
+                message += `   📝 Remarks: ${payment.remarks}\n`;
+              message += `\n`;
+            });
+
+            message += `💰 *Total Amount Collected:* ₹${totalAmount}`;
+          } else {
+            // Individual student payment history
+            message += `📈 *Payment History:*\n`;
+            result.data.forEach((payment, index) => {
+              const amount = payment.installment_amount || "0";
+              const date = payment.date || "Unknown date";
+              const mode = payment.mode || "Unknown mode";
+              const instId = payment.inst_id || "N/A";
+              
+              message += `${index + 1}. 🆔 ${instId}\n`;
+              message += `   💰 Amount: ₹${amount}\n`;
+              message += `   📅 Date: ${date}\n`;
+              message += `   💳 Mode: ${mode}\n`;
+              if (payment.remarks) message += `   📝 Remarks: ${payment.remarks}\n`;
+              message += `\n`;
+            });
+            
+            const total = result.data.reduce(
+              (sum, payment) => sum + parseFloat(payment.installment_amount || 0),
+              0
+            );
+            message += `💰 *Total Paid:* ₹${total}`;
+          }
         } else {
           message += "❌ No payment history found";
         }
@@ -122,14 +163,73 @@ export async function sendReadResponse(to, result) {
       case "student_search":
         if (result.data && result.data.length > 0) {
           message += `🔍 *Search Results (${result.data.length} found):*\n`;
-          // Remove the slice limit and show ALL results
           result.data.forEach((student) => {
             message += `• ${student.name} (${student.stud_id}) - Class ${student.class}\n`;
           });
-          // Remove the truncation message completely
         } else {
           message += "❌ No students found";
         }
+        break;
+
+      case "class_report":
+        if (result.data && result.data.length > 0) {
+          message += `📚 *Class ${result.data[0].class} Report (${result.data.length} students):*\n`;
+          result.data.forEach((student) => {
+            message += `• ${student.name} (${student.stud_id})\n`;
+          });
+        } else {
+          message += "❌ No students found in this class";
+        }
+        break;
+
+      case "aggregate_summary":
+        if (result.data) {
+          console.log(
+            "🔍 DEBUG: Total students to show:",
+            result.data.students?.length
+          );
+          console.log("🔍 DEBUG: Students data:", result.data.students);
+
+          message += `📊 *${result.data.query}*\n\n`;
+
+          if (result.data.total_count) {
+            message += `📈 *Total Count:* ${result.data.total_count}\n\n`;
+          }
+
+          if (result.data.students && result.data.students.length > 0) {
+            message += `👥 *Complete Students List:*\n`;
+
+            console.log(
+              "🔍 DEBUG: About to loop through",
+              result.data.students.length,
+              "students"
+            );
+
+            // Show ALL students - no limits
+            result.data.students.forEach((student, index) => {
+              message += `${index + 1}. ${student.name} (${student.stud_id}) - Class ${student.class}\n`;
+              if (student.paid) message += `   Paid: ₹${student.paid}, Balance: ₹${student.balance}\n`;
+              if (student.balance && !student.paid) message += `   Balance: ₹${student.balance}\n`;
+              message += `\n`;
+            });
+
+            console.log("🔍 DEBUG: Final message length:", message.length);
+          }
+
+          if (result.data.total_outstanding) {
+            message += `💰 *Total Outstanding:* ₹${result.data.total_outstanding}`;
+          }
+
+          if (result.data.total_fees_collected) {
+            message += `\n💰 *Total Collected:* ₹${result.data.total_fees_collected}`;
+          }
+        } else {
+          message += "❌ No aggregate data found";
+        }
+        break;
+
+      default:
+        message += `📋 *Query Result:*\n${result.message}`;
         break;
     }
   } else {

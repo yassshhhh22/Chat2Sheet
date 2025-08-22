@@ -1,8 +1,8 @@
 import Groq from "groq-sdk";
-import "dotenv/config";
 
-const apiKey = process.env.GROQ_API_KEY;
-const groq = new Groq({ apiKey });
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY,
+});
 
 export async function parseReadRequest(userMessage) {
   // Handle undefined or empty messages
@@ -20,37 +20,41 @@ export async function parseReadRequest(userMessage) {
     };
   }
 
-  // ...existing code...
-  // ...existing code...
-// Update the prompt to handle aggregate queries better
-const prompt = `You are a school fee management assistant. Analyze user queries and extract structured information.
+  // Update the prompt to include date-based queries
+  const prompt = `You are a school fee management assistant for READ queries. Analyze this user query and return ONLY valid JSON.
 
-For READ operations, determine:
-1. query_type: "fee_status", "student_info", "payment_history", "aggregate_summary"
-2. parameters: Extract relevant filters
-3. output_format: "detailed", "summary", "list"
+User Query: "${userMessage}"
 
-Query Types:
-- fee_status: Individual student fee information (requires stud_id OR name)
-- student_info: Student details (requires stud_id OR name)  
-- payment_history: Payment records (requires stud_id OR name)
-- aggregate_summary: Total/summary data across students (no individual student required)
+Determine the query type and extract parameters. Return JSON in this exact format:
 
-For aggregate queries like "total installments received", "total fees collected", "summary for date":
-- Use query_type: "aggregate_summary"
-- Set parameters based on filters (date_range, class, fee_type)
-- Student ID/name not required
+For date-based payment queries:
+{"query_type": "payment_history", "parameters": {"date_filter": "2025-08-22", "date_range": {"start": "2025-08-22", "end": "2025-08-22"}}, "output_format": "detailed"}
 
-Parameters:
-- stud_id: Student ID number
-- name: Student name
-- class: Class/grade
-- fee_filter: Fee type filter
-- date_range: {start: "YYYY-MM-DD", end: "YYYY-MM-DD"}
+For individual student details: 
+{"query_type": "student_details", "parameters": {"stud_id": "STU123", "name": "", "class": ""}, "output_format": "detailed"}
 
-ALWAYS return valid JSON only.`;
-// ...existing code...
-  // ...existing code...
+For individual fee status:
+{"query_type": "fee_status", "parameters": {"stud_id": "STU123", "name": "", "class": ""}, "output_format": "detailed"}
+
+For class-specific queries:
+{"query_type": "class_report", "parameters": {"class": "11"}, "output_format": "list"}
+
+For aggregate/summary queries:
+{"query_type": "aggregate_summary", "parameters": {"criteria": "paid_less_than_10000", "amount": "10000", "class": ""}, "output_format": "summary"}
+
+For student search by name:
+{"query_type": "student_search", "parameters": {"stud_id": "", "name": "John", "class": ""}, "output_format": "list"}
+
+For payment history:
+{"query_type": "payment_history", "parameters": {"stud_id": "STU123", "name": "", "class": ""}, "output_format": "detailed"}
+
+IMPORTANT CLASSIFICATION RULES:
+- "payments received on [date]" or "payments on [date]" -> use "payment_history" with date_filter
+- "payments between [date1] and [date2]" -> use "payment_history" with date_range
+- "students in class X" -> use "class_report"
+- "total students with [fee criteria]" -> use "aggregate_summary"
+
+RETURN ONLY THE JSON OBJECT, NO OTHER TEXT.`;
 
   try {
     const response = await groq.chat.completions.create({
@@ -77,28 +81,36 @@ ALWAYS return valid JSON only.`;
       jsonStr = jsonStr.substring(startIndex, lastIndex + 1);
     }
 
+    // If no valid JSON found, use fallback
+    if (!jsonStr.includes("{") || !jsonStr.includes("}")) {
+      console.log("❌ No valid JSON found in response, using fallback");
+      return createFallbackResponse(userMessage);
+    }
+
     const parsed = JSON.parse(jsonStr);
 
-    // Validate the response
+    // Validate the response structure
     const validQueryTypes = [
       "student_search",
-      "fee_status",
+      "fee_status", 
       "payment_history",
       "student_details",
       "class_report",
+      "aggregate_summary",
     ];
 
-    if (!validQueryTypes.includes(parsed.query_type)) {
+    if (!parsed.query_type || !validQueryTypes.includes(parsed.query_type)) {
       console.error("❌ Invalid query type returned:", parsed.query_type);
-      return {
-        query_type: "student_search",
-        parameters: {
-          stud_id: "",
-          name: userMessage,
-          class: "",
-          date_range: { start: "", end: "" },
-        },
-        output_format: "summary",
+      return createFallbackResponse(userMessage);
+    }
+
+    // Ensure parameters exist
+    if (!parsed.parameters) {
+      parsed.parameters = {
+        stud_id: "",
+        name: "",
+        class: "",
+        date_range: { start: "", end: "" },
       };
     }
 
@@ -107,60 +119,64 @@ ALWAYS return valid JSON only.`;
   } catch (error) {
     console.error("❌ Read AI parsing error:", error);
     console.error("❌ Failed to parse message:", userMessage);
+    return createFallbackResponse(userMessage);
+  }
+}
 
-    // Fallback: try to extract basic info
-    const fallbackResult = {
-      query_type: "student_search",
-      parameters: {
-        stud_id: "",
-        name: "",
-        class: "",
-        fee_filter: null,
-        date_range: { start: "", end: "" },
-      },
-      output_format: "summary",
-    };
+// Helper function to create fallback response for READ operations
+function createFallbackResponse(userMessage) {
+  const fallbackResult = {
+    query_type: "student_search",
+    parameters: {
+      stud_id: "",
+      name: "",
+      class: "",
+      criteria: "",
+      amount: "",
+      date_range: { start: "", end: "" },
+    },
+    output_format: "summary",
+  };
 
-    // Try to extract student ID
-    const studIdMatch = userMessage.match(/STU\d+/i);
-    if (studIdMatch) {
-      fallbackResult.parameters.stud_id = studIdMatch[0].toUpperCase();
-      fallbackResult.query_type = "student_details";
-    }
-
-    // Try to extract class
-    const classMatch = userMessage.match(/class\s+(\d+)/i);
-    if (classMatch) {
-      fallbackResult.parameters.class = classMatch[1];
-    }
-
-    // Try to extract fee filters
-    const paidLessThanMatch = userMessage.match(/paid.*less.*?(\d+)/i);
-    const balanceMoreThanMatch = userMessage.match(/balance.*more.*?(\d+)/i);
-    const feesDueMatch = userMessage.match(/fees?\s+due|outstanding|pending/i);
-
-    if (paidLessThanMatch) {
-      fallbackResult.parameters.fee_filter = {
-        type: "paid_less_than",
-        amount: paidLessThanMatch[1],
-      };
-    } else if (balanceMoreThanMatch) {
-      fallbackResult.parameters.fee_filter = {
-        type: "balance_more_than",
-        amount: balanceMoreThanMatch[1],
-      };
-    } else if (feesDueMatch) {
-      fallbackResult.parameters.fee_filter = {
-        type: "balance_more_than",
-        amount: "0",
-      };
-    }
-
-    // If no specific patterns found, treat as name search
-    if (!studIdMatch && !classMatch && !fallbackResult.parameters.fee_filter) {
-      fallbackResult.parameters.name = userMessage;
-    }
-
+  // Check for class queries first (BEFORE aggregate)
+  const classMatch = userMessage.match(/class\s+(\d+)|students\s+in\s+class\s+(\d+)/i);
+  if (classMatch) {
+    const classNumber = classMatch[1] || classMatch[2];
+    fallbackResult.query_type = "class_report";
+    fallbackResult.parameters.class = classNumber;
+    console.log("🔧 Created class report fallback for class:", classNumber);
     return fallbackResult;
   }
+
+  // Check for aggregate queries
+  const aggregateKeywords = /total|count|all students|how many|list of students/i;
+  const feeKeywords = /fee|paid|balance|outstanding|pending/i;
+  const amountMatch = userMessage.match(/(\d+)/);
+
+  if (aggregateKeywords.test(userMessage) && feeKeywords.test(userMessage)) {
+    fallbackResult.query_type = "aggregate_summary";
+    
+    if (userMessage.includes("less than") && amountMatch) {
+      fallbackResult.parameters.criteria = `paid_less_than_${amountMatch[1]}`;
+      fallbackResult.parameters.amount = amountMatch[1];
+    } else if (userMessage.includes("more than") && amountMatch) {
+      fallbackResult.parameters.criteria = `balance_more_than_${amountMatch[1]}`;
+      fallbackResult.parameters.amount = amountMatch[1];
+    } else if (userMessage.includes("outstanding") || userMessage.includes("pending")) {
+      fallbackResult.parameters.criteria = "outstanding_fees";
+    }
+    
+    console.log("🔧 Created aggregate fallback response:", fallbackResult);
+    return fallbackResult;
+  }
+
+  // Try to extract student ID
+  const studIdMatch = userMessage.match(/STU\d+/i);
+  if (studIdMatch) {
+    fallbackResult.parameters.stud_id = studIdMatch[0].toUpperCase();
+    fallbackResult.query_type = "student_details";
+  }
+
+  console.log("🔧 Created fallback response:", fallbackResult);
+  return fallbackResult;
 }
