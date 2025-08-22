@@ -14,7 +14,6 @@ export const processAIData = async (parsedData) => {
   try {
     console.log("🔍 Processing AI parsed data:", parsedData);
 
-    // Import controllers here to avoid circular dependency
     const { addStudent, addInstallment, updateFeesSummary, logAction } =
       await import("../controllers/sheetsController.js");
 
@@ -27,12 +26,14 @@ export const processAIData = async (parsedData) => {
       message: "Data processed successfully",
     };
 
+    // Track processed installments to avoid duplicates
+    const processedInstallments = new Set();
+
     // 1. Process Students data (new student creation)
     if (parsedData.Students && parsedData.Students.length > 0) {
       console.log("📝 Processing Students data...");
       for (const studentData of parsedData.Students) {
         try {
-          // Add student with corresponding fees data
           const feesData =
             parsedData.Fees?.find((fee) => fee.name === studentData.name) || {};
           const completeStudentData = {
@@ -43,6 +44,46 @@ export const processAIData = async (parsedData) => {
           const studentResult = await addStudent(completeStudentData);
           results.students.push(studentResult);
           console.log("✅ Student added:", studentResult);
+
+          // Check if this student has an immediate installment payment
+          const immediateInstallmentIndex = parsedData.Installments?.findIndex(
+            (inst) =>
+              inst.name === studentData.name ||
+              inst.stud_id === studentResult.stud_id
+          );
+
+          if (
+            immediateInstallmentIndex !== -1 &&
+            immediateInstallmentIndex !== undefined
+          ) {
+            const immediateInstallment =
+              parsedData.Installments[immediateInstallmentIndex];
+            console.log(
+              "💰 Processing immediate installment for new student..."
+            );
+
+            try {
+              const installmentData = {
+                ...immediateInstallment,
+                stud_id: studentResult.stud_id || immediateInstallment.stud_id,
+              };
+
+              const installmentResult = await addInstallment(installmentData);
+              results.installments.push(installmentResult);
+
+              // Mark this installment as processed
+              processedInstallments.add(immediateInstallmentIndex);
+
+              console.log("✅ Immediate installment added:", installmentResult);
+            } catch (error) {
+              console.error("❌ Error adding immediate installment:", error);
+              results.installments.push({
+                success: false,
+                error: error.message,
+                data: immediateInstallment,
+              });
+            }
+          }
         } catch (error) {
           console.error("❌ Error adding student:", error);
           results.students.push({
@@ -54,10 +95,20 @@ export const processAIData = async (parsedData) => {
       }
     }
 
-    // 2. Process Installments data
+    // 2. Process remaining Installments data (those not processed with students)
     if (parsedData.Installments && parsedData.Installments.length > 0) {
-      console.log("💰 Processing Installments data...");
-      for (const installmentData of parsedData.Installments) {
+      console.log("💰 Processing remaining Installments data...");
+
+      parsedData.Installments.forEach(async (installmentData, index) => {
+        // Skip if this installment was already processed
+        if (processedInstallments.has(index)) {
+          console.log(
+            "⏭️ Skipping already processed installment at index:",
+            index
+          );
+          return;
+        }
+
         try {
           const installmentResult = await addInstallment(installmentData);
           results.installments.push(installmentResult);
@@ -70,7 +121,7 @@ export const processAIData = async (parsedData) => {
             data: installmentData,
           });
         }
-      }
+      });
     }
 
     // 3. Process any additional Logs data from AI (if not already logged by controllers)
@@ -143,4 +194,3 @@ export const processAIData = async (parsedData) => {
     };
   }
 };
-
