@@ -77,8 +77,6 @@ The schemas are strict and persistent — do not add or remove fields.
        * total_paid = "0"
        * balance = total_fees
        * status = "unpaid"
-       * due_date = ""
-       * last_payment_date = ""
      * **Logs** → exactly one row logging the creation
 
 3. Always include **all fields from the schema**, even if empty ("").
@@ -149,9 +147,7 @@ Output:
       "total_fees": "40000",
       "total_paid": "0",
       "balance": "40000",
-      "status": "unpaid",
-      "due_date": "",
-      "last_payment_date": ""
+      "status": "unpaid"
     }
   ],
   "Logs": [
