@@ -85,6 +85,14 @@ The schemas are strict and persistent — do not add or remove fields.
 
 5. RETURN ONLY VALID JSON. NO EXPLANATIONS OR EXTRA TEXT.
 
+6. **IMPORTANT**: Always return the main object with ALL possible arrays, even if empty:
+   {
+     "Students": [],
+     "Fees": [],
+     "Installments": [],
+     "Logs": []
+   }
+
 ---
 
 ### Example 1: Installment (Minimal Info)
@@ -93,6 +101,8 @@ Input: "student id STU123 paid 4000"
 
 Output:
 {
+  "Students": [],
+  "Fees": [],
   "Installments": [
     {
       "inst_id": "INST234",
@@ -150,6 +160,7 @@ Output:
       "status": "unpaid"
     }
   ],
+  "Installments": [],
   "Logs": [
     {
       "log_id": "LOG789",
@@ -189,11 +200,24 @@ Input: ${userMessage}
       }
     }
 
-    return JSON.parse(jsonStr);
+    const parsed = JSON.parse(jsonStr);
+
+    // Ensure all arrays exist to prevent undefined errors
+    const result = {
+      Students: parsed.Students || [],
+      Fees: parsed.Fees || [],
+      Installments: parsed.Installments || [],
+      Logs: parsed.Logs || [],
+    };
+
+    console.log("✅ Processed AI data:", JSON.stringify(result, null, 2));
+    return result;
   } catch (error) {
     console.error("❌ AI parsing error:", error);
-    // Return fallback structure
+    // Return fallback structure with all arrays
     return {
+      Students: [],
+      Fees: [],
       Installments: [],
       Logs: [
         {
