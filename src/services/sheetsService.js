@@ -338,3 +338,119 @@ export async function updateFeesSummaryTotals(studId) {
     throw error;
   }
 }
+
+// Read operations
+export async function getStudentFeeStatus(studId) {
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.FEES_SUMMARY}!A:G`,
+    });
+
+    const rows = response.data.values || [];
+    const studentFeeRow = rows.slice(1).find((row) => row[0] === studId);
+
+    if (studentFeeRow) {
+      return {
+        stud_id: studentFeeRow[0],
+        name: studentFeeRow[1],
+        class: studentFeeRow[2],
+        total_fees: studentFeeRow[3],
+        total_paid: studentFeeRow[4],
+        balance: studentFeeRow[5],
+        status: studentFeeRow[6],
+      };
+    }
+
+    return null;
+  } catch (error) {
+    console.error("Error getting fee status:", error);
+    throw error;
+  }
+}
+
+export async function getPaymentHistory(studId, dateRange = {}) {
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.INSTALLMENTS}!A:J`,
+    });
+
+    const rows = response.data.values || [];
+    const installments = rows
+      .slice(1)
+      .filter((row) => row[1] === studId)
+      .map((row) => ({
+        inst_id: row[0],
+        stud_id: row[1],
+        name: row[2],
+        class: row[3],
+        amount: row[4],
+        date: row[5],
+        mode: row[6],
+        remarks: row[7],
+        recorded_by: row[8],
+        created_at: row[9],
+      }));
+
+    return installments;
+  } catch (error) {
+    console.error("Error getting payment history:", error);
+    throw error;
+  }
+}
+
+export async function getStudentsByClass(className) {
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.STUDENTS}!A:H`,
+    });
+
+    const rows = response.data.values || [];
+    const students = rows
+      .slice(1)
+      .filter((row) => row[2] === className)
+      .map((row) => ({
+        stud_id: row[0],
+        name: row[1],
+        class: row[2],
+        parent_name: row[3],
+        parent_no: row[4],
+        phone_no: row[5],
+        email: row[6],
+        created_at: row[7],
+      }));
+
+    return students;
+  } catch (error) {
+    console.error("Error getting students by class:", error);
+    throw error;
+  }
+}
+
+export async function getAllStudents() {
+  try {
+    const response = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${SHEETS.STUDENTS}!A:H`,
+    });
+
+    const rows = response.data.values || [];
+    const students = rows.slice(1).map((row) => ({
+      stud_id: row[0],
+      name: row[1],
+      class: row[2],
+      parent_name: row[3],
+      parent_no: row[4],
+      phone_no: row[5],
+      email: row[6],
+      created_at: row[7],
+    }));
+
+    return students;
+  } catch (error) {
+    console.error("Error getting all students:", error);
+    throw error;
+  }
+}

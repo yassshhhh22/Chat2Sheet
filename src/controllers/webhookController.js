@@ -1,7 +1,14 @@
 import { parseMessageWithAI } from "../services/aiService.js";
+import { parseReadRequest } from "../services/readAiService.js";
+import { classifyMessage } from "../services/classifierService.js";
 import { processAIData } from "../services/sheetService.js";
+import { processReadRequest } from "../controllers/readController.js";
 import { logAction } from "./sheetsController.js";
-import { sendFormattedResponse } from "../services/whatsappService.js";
+import {
+  sendFormattedResponse,
+  sendReadResponse,
+  sendWhatsAppMessage,
+} from "../services/whatsappService.js";
 
 export const handleIncomingMessage = async (req, res) => {
   let rawMessage = "";
@@ -22,22 +29,41 @@ export const handleIncomingMessage = async (req, res) => {
     console.log("📩 Incoming message from:", from);
     console.log("📩 Message content:", text);
 
-    // AI interprets the message → JSON
-    parsedData = await parseMessageWithAI(text);
-    console.log("🤖 Parsed:", parsedData);
+    // Step 1: Classify message as READ or WRITE
+    const classification = await classifyMessage(text);
+    console.log("🎯 Message classified as:", classification.operation);
 
-    // Push data to Google Sheets using AI processing service
-    const result = await processAIData(parsedData);
-    console.log("📊 Sheet processing result:", result);
+    let result;
 
-    // Send response back to WhatsApp
-    try {
+    if (classification.operation === "READ") {
+      // READ flow: Parse read request → Process read request → Send read response
+      console.log("📖 Processing READ request...");
+
+      const readRequest = await parseReadRequest(text);
+      console.log("🔍 Parsed read request:", readRequest);
+
+      result = await processReadRequest(readRequest, from);
+      console.log("📊 Read result:", result);
+
+      // Send read response to WhatsApp
+      await sendReadResponse(from, result);
+    } else {
+      // WRITE flow: Existing AI parsing → Sheet processing → Write response
+      console.log("✍️ Processing WRITE request...");
+
+      // AI interprets the message → JSON
+      parsedData = await parseMessageWithAI(text);
+      console.log("🤖 Parsed write data:", parsedData);
+
+      // Push data to Google Sheets using AI processing service
+      result = await processAIData(parsedData);
+      console.log("📊 Sheet processing result:", result);
+
+      // Send write response to WhatsApp
       await sendFormattedResponse(from, result);
-      console.log("✅ Response sent to WhatsApp");
-    } catch (whatsappError) {
-      console.error("❌ Failed to send WhatsApp response:", whatsappError);
-      // Continue processing even if WhatsApp response fails
     }
+
+    console.log("✅ Response sent to WhatsApp");
 
     // Log successful action
     await logAction(
@@ -57,10 +83,12 @@ export const handleIncomingMessage = async (req, res) => {
 
     // Send error message to WhatsApp user
     try {
-      const errorMessage = "❌ Sorry, there was an error processing your request. Please try again or contact support.";
-      await sendWhatsAppMessage(msg.from, errorMessage);
-    } catch (whatsappError) {
-      console.error("❌ Failed to send error message to WhatsApp:", whatsappError);
+      await sendWhatsAppMessage(
+        from,
+        "❌ *System Error*\n\nSorry, something went wrong. Please try again later."
+      );
+    } catch (sendError) {
+      console.error("❌ Failed to send error message:", sendError);
     }
 
     // Log error action
