@@ -62,9 +62,11 @@ The schemas are strict and persistent — do not add or remove fields.
 ### RULES:
 
 1. **Installment Payment**
-   * Staff will always provide the stud_id.
+   * Staff will provide the stud_id and installment amount.
+   * For installments, ONLY stud_id and installment_amount are required.
+   * Leave name, class, mode, and remarks as empty strings ("") if not provided.
    * Parsed data must include only:
-     * **Installments** → exactly one row with all fields filled, including the provided stud_id
+     * **Installments** → exactly one row with stud_id, installment_amount filled, other fields can be empty
      * **Logs** → exactly one row logging the action with the same stud_id
    * Do **not** update Fees directly in the parsed data — controller calculates total_paid and balance.
 
@@ -85,9 +87,9 @@ The schemas are strict and persistent — do not add or remove fields.
 
 ---
 
-### Example 1: Installment
+### Example 1: Installment (Minimal Info)
 
-Input: "Rahul Pandey fee installment student id STU123 amount 4000"
+Input: "student id STU123 paid 4000"
 
 Output:
 {
@@ -95,8 +97,8 @@ Output:
     {
       "inst_id": "INST234",
       "stud_id": "STU123",
-      "name": "Rahul Pandey",
-      "class": "12",
+      "name": "",
+      "class": "",
       "installment_amount": "4000",
       "date": "2025-08-22",
       "mode": "",
@@ -110,7 +112,7 @@ Output:
       "log_id": "LOG567",
       "action": "add_installment",
       "stud_id": "STU123",
-      "raw_message": "Rahul Pandey fee installment student id STU123 amount 4000",
+      "raw_message": "student id STU123 paid 4000",
       "parsed_json": "{Installments entry above}",
       "result": "success",
       "error_msg": "",
