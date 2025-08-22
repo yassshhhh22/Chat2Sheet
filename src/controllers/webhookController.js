@@ -1,10 +1,10 @@
 import { parseMessageWithAI } from "../services/aiService.js";
 import { processAIData } from "../services/sheetService.js";
 import { logAction } from "./sheetsController.js";
+import { sendFormattedResponse } from "../services/whatsappService.js";
 
 export const handleIncomingMessage = async (req, res) => {
   let rawMessage = "";
-  // Initialize parsedData to null
   let parsedData = null;
 
   try {
@@ -19,7 +19,8 @@ export const handleIncomingMessage = async (req, res) => {
     const text = msg.text?.body;
     rawMessage = text;
 
-    console.log("📩 Incoming message:", text);
+    console.log("📩 Incoming message from:", from);
+    console.log("📩 Message content:", text);
 
     // AI interprets the message → JSON
     parsedData = await parseMessageWithAI(text);
@@ -27,11 +28,21 @@ export const handleIncomingMessage = async (req, res) => {
 
     // Push data to Google Sheets using AI processing service
     const result = await processAIData(parsedData);
+    console.log("📊 Sheet processing result:", result);
+
+    // Send response back to WhatsApp
+    try {
+      await sendFormattedResponse(from, result);
+      console.log("✅ Response sent to WhatsApp");
+    } catch (whatsappError) {
+      console.error("❌ Failed to send WhatsApp response:", whatsappError);
+      // Continue processing even if WhatsApp response fails
+    }
 
     // Log successful action
     await logAction(
       "webhook_message",
-      result.stud_id || "",
+      result.students?.[0]?.stud_id || result.installments?.[0]?.stud_id || "",
       rawMessage,
       parsedData,
       "success",
@@ -39,10 +50,18 @@ export const handleIncomingMessage = async (req, res) => {
       `whatsapp_${from}`
     );
 
-    // Respond to WhatsApp (optional confirmation)
+    // Respond to WhatsApp (webhook confirmation)
     res.status(200).send("EVENT_RECEIVED");
   } catch (err) {
     console.error("❌ Webhook error:", err);
+
+    // Send error message to WhatsApp user
+    try {
+      const errorMessage = "❌ Sorry, there was an error processing your request. Please try again or contact support.";
+      await sendWhatsAppMessage(msg.from, errorMessage);
+    } catch (whatsappError) {
+      console.error("❌ Failed to send error message to WhatsApp:", whatsappError);
+    }
 
     // Log error action
     await logAction(
