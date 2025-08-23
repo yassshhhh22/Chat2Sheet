@@ -257,15 +257,15 @@ export async function sendInvoiceDocument(to, filePath, caption) {
     // Add the PDF file
     const fileBuffer = await fs.readFile(filePath);
     const blob = new Blob([fileBuffer], { type: "application/pdf" });
-    formData.append("media", blob, path.basename(filePath));
+    formData.append("file", blob, path.basename(filePath));
 
     // First, upload the media
     const mediaResponse = await fetch(
-      `https://graph.facebook.com/v20.0/${PHONE_NUMBER_ID}/media`,
+      `https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/media`,
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${ACCESS_TOKEN}`,
+          Authorization: `Bearer ${WHATSAPP_TOKEN}`,
         },
         body: formData,
       }
@@ -290,17 +290,14 @@ export async function sendInvoiceDocument(to, filePath, caption) {
       },
     };
 
-    const response = await fetch(
-      `https://graph.facebook.com/v20.0/${PHONE_NUMBER_ID}/messages`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${ACCESS_TOKEN}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(messageData),
-      }
-    );
+    const response = await fetch(WHATSAPP_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(messageData),
+    });
 
     const result = await response.json();
     console.log("📎 Document send response:", result);
@@ -308,6 +305,65 @@ export async function sendInvoiceDocument(to, filePath, caption) {
     return result;
   } catch (error) {
     console.error("❌ Error sending invoice document:", error);
+    throw error;
+  }
+}
+
+export async function sendInvoicePDF(phoneNumber, pdfPath, studentName) {
+  try {
+    console.log("📎 Sending invoice PDF to:", phoneNumber);
+
+    // Read the file as buffer
+    const fileBuffer = await fs.readFile(pdfPath);
+    const formData = new FormData();
+    const blob = new Blob([fileBuffer], { type: "application/pdf" });
+    formData.append("file", blob, path.basename(pdfPath));
+
+    // First upload the PDF as media
+    const mediaResponse = await fetch(
+      `https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/media`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+        },
+        body: formData,
+      }
+    );
+
+    const mediaData = await mediaResponse.json();
+    console.log("📎 Media upload response:", mediaData);
+
+    if (!mediaData.id) {
+      throw new Error("Failed to upload media: " + JSON.stringify(mediaData));
+    }
+
+    // Send the PDF document
+    const messageData = {
+      messaging_product: "whatsapp",
+      to: phoneNumber,
+      type: "document",
+      document: {
+        id: mediaData.id,
+        caption: `📄 Payment Invoice for ${studentName}\n\nThank you for your payment!`,
+        filename: path.basename(pdfPath),
+      },
+    };
+
+    const response = await fetch(WHATSAPP_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(messageData),
+    });
+
+    const result = await response.json();
+    console.log("✅ Invoice sent to:", phoneNumber);
+    return result;
+  } catch (error) {
+    console.error("❌ Error sending invoice:", error);
     throw error;
   }
 }
