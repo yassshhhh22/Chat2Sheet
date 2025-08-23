@@ -340,9 +340,42 @@ export const requestWriteConfirmation = async (
 
   if (data.Installments && data.Installments.length > 0) {
     const inst = data.Installments[0];
-    dataPreview += `\n💳 *Payment:*\n`;
+
+    // Import the required functions to get student details
+    let studentDetails = null;
+
+    try {
+      // Try to get student details for better confirmation message
+      const { findStudentById, findStudentByName } = await import(
+        "../services/sheetsService.js"
+      );
+
+      if (inst.stud_id) {
+        studentDetails = await findStudentById(inst.stud_id);
+      } else if (inst.name) {
+        studentDetails = await findStudentByName(inst.name);
+      }
+    } catch (error) {
+      console.error("Error fetching student details for confirmation:", error);
+    }
+
+    dataPreview += `\n💳 *Payment Details:*\n`;
     dataPreview += `• Amount: ₹${inst.installment_amount}\n`;
-    dataPreview += `• Student ID: ${inst.stud_id}\n`;
+
+    if (studentDetails) {
+      dataPreview += `• Student: ${studentDetails.name}\n`;
+      dataPreview += `• Class: ${studentDetails.class}\n`;
+      dataPreview += `• Parent Phone: ${
+        studentDetails.parent_no || "Not available"
+      }\n`;
+    } else {
+      dataPreview += `• Student ID: ${inst.stud_id || "N/A"}\n`;
+      dataPreview += `• Student Name: ${inst.name || "N/A"}\n`;
+    }
+
+    if (inst.mode) dataPreview += `• Payment Mode: ${inst.mode}\n`;
+    if (inst.date) dataPreview += `• Date: ${inst.date}\n`;
+    if (inst.remarks) dataPreview += `• Remarks: ${inst.remarks}\n`;
   }
 
   const confirmationMessage =
