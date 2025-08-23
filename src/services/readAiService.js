@@ -72,7 +72,6 @@ RETURN ONLY THE JSON OBJECT, NO OTHER TEXT.`;
     });
 
     const content = response.choices[0].message.content.trim();
-    console.log("🔍 Raw read AI response:", content);
 
     // Extract JSON more reliably
     let jsonStr = content;
@@ -121,11 +120,9 @@ RETURN ONLY THE JSON OBJECT, NO OTHER TEXT.`;
       };
     }
 
-    console.log("✅ Parsed read request:", parsed);
     return parsed;
   } catch (error) {
     console.error("❌ Read AI parsing error:", error);
-    console.error("❌ Failed to parse message:", userMessage);
     return createFallbackResponse(userMessage);
   }
 }
@@ -153,7 +150,6 @@ function createFallbackResponse(userMessage) {
     const classNumber = classMatch[1] || classMatch[2];
     fallbackResult.query_type = "class_report";
     fallbackResult.parameters.class = classNumber;
-    console.log("🔧 Created class report fallback for class:", classNumber);
     return fallbackResult;
   }
 
@@ -179,7 +175,6 @@ function createFallbackResponse(userMessage) {
       fallbackResult.parameters.criteria = "outstanding_fees";
     }
 
-    console.log("🔧 Created aggregate fallback response:", fallbackResult);
     return fallbackResult;
   }
 
@@ -190,6 +185,6 @@ function createFallbackResponse(userMessage) {
     fallbackResult.query_type = "student_details";
   }
 
-  console.log("🔧 Created fallback response:", fallbackResult);
   return fallbackResult;
 }
+   

@@ -8,7 +8,7 @@ import {
   getStudentsWithFeeCriteria,
   getStudentDetails,
   getAllFees,
-  getAllInstallments
+  getAllInstallments,
 } from "../services/sheetsService.js";
 
 export async function processReadRequest(parsedRequest) {
@@ -20,25 +20,27 @@ export async function processReadRequest(parsedRequest) {
     switch (query_type) {
       case "fee_status":
         return await getFeeStatus(parameters, output_format);
-      
+
       case "student_info":
       case "student_details":
         return await getStudentInfo(parameters, output_format);
-      
+
       case "payment_history":
         return await getPaymentHistoryData(parameters, output_format);
-      
+
       case "student_search":
         return await getStudentSearch(parameters, output_format);
-      
+
       case "class_report":
         return await getClassReport(parameters, output_format);
-      
+
       case "aggregate_summary":
         return await getAggregateSummary(parameters, output_format);
-      
+
       default:
-        console.log(`⚠️ Unknown query type: ${query_type}, falling back to student search`);
+        console.log(
+          `⚠️ Unknown query type: ${query_type}, falling back to student search`
+        );
         return await getStudentSearch(parameters, output_format);
     }
   } catch (error) {
@@ -104,7 +106,7 @@ async function getFeeStatus(parameters, output_format) {
         total_fees: studentDetails.total_fees,
         total_paid: studentDetails.total_paid,
         balance: studentDetails.balance,
-        status: studentDetails.status
+        status: studentDetails.status,
       },
       query_type: "fee_status",
       message: "Fee status retrieved successfully",
@@ -121,46 +123,53 @@ async function getAggregateSummary(parameters, output_format) {
     console.log("📊 Processing aggregate summary with parameters:", parameters);
 
     let summary = {};
-    
+
     // Handle class-specific queries FIRST (check both class parameter and criteria)
-    if ((parameters.class && parameters.class !== "") || 
-        (parameters.criteria && parameters.criteria.includes("class"))) {
-      
-      const className = parameters.class || 
-        (parameters.criteria.match(/class\s+(\d+)/) && parameters.criteria.match(/class\s+(\d+)/)[1]);
-      
+    if (
+      (parameters.class && parameters.class !== "") ||
+      (parameters.criteria && parameters.criteria.includes("class"))
+    ) {
+      const className =
+        parameters.class ||
+        (parameters.criteria.match(/class\s+(\d+)/) &&
+          parameters.criteria.match(/class\s+(\d+)/)[1]);
+
       console.log("📚 Processing class-specific query for class:", className);
-      
+
       if (className) {
         const classStudents = await getStudentsByClass(className);
         console.log("📚 Found students in class:", classStudents.length);
-        
+
         const allFees = await getAllFees();
-        
+
         // Get fee information for class students
-        const classStudentsWithFees = classStudents.map(student => {
-          const feeInfo = allFees.find(fee => fee.stud_id === student.stud_id);
+        const classStudentsWithFees = classStudents.map((student) => {
+          const feeInfo = allFees.find(
+            (fee) => fee.stud_id === student.stud_id
+          );
           return {
             ...student,
             total_fees: feeInfo?.total_fees || "0",
             total_paid: feeInfo?.total_paid || "0",
             balance: feeInfo?.balance || "0",
-            status: feeInfo?.status || "unpaid"
+            status: feeInfo?.status || "unpaid",
           };
         });
-        
-        const totalFeesCollected = classStudentsWithFees.reduce((sum, student) => 
-          sum + parseFloat(student.total_paid || 0), 0
+
+        const totalFeesCollected = classStudentsWithFees.reduce(
+          (sum, student) => sum + parseFloat(student.total_paid || 0),
+          0
         );
-        
-        const totalOutstanding = classStudentsWithFees.reduce((sum, student) => 
-          sum + parseFloat(student.balance || 0), 0
+
+        const totalOutstanding = classStudentsWithFees.reduce(
+          (sum, student) => sum + parseFloat(student.balance || 0),
+          0
         );
 
         summary = {
           query: `All students in class ${className}`,
           total_count: classStudentsWithFees.length,
-          students: classStudentsWithFees.map(student => ({
+          students: classStudentsWithFees.map((student) => ({
             stud_id: student.stud_id,
             name: student.name,
             class: student.class,
@@ -168,93 +177,113 @@ async function getAggregateSummary(parameters, output_format) {
             phone_no: student.phone_no,
             paid: student.total_paid,
             balance: student.balance,
-            status: student.status
+            status: student.status,
           })),
           total_fees_collected: totalFeesCollected.toString(),
-          total_outstanding: totalOutstanding.toString()
+          total_outstanding: totalOutstanding.toString(),
         };
       }
     }
     // Handle fee criteria queries
-    else if (parameters.criteria && parameters.criteria.includes("paid_less_than")) {
+    else if (
+      parameters.criteria &&
+      parameters.criteria.includes("paid_less_than")
+    ) {
       const amount = parameters.amount || "10000";
-      const students = await getStudentsWithFeeCriteria('paid_less_than', amount);
-      
-      const totalOutstanding = students.reduce((sum, student) => 
-        sum + parseFloat(student.balance || 0), 0
+      const students = await getStudentsWithFeeCriteria(
+        "paid_less_than",
+        amount
+      );
+
+      const totalOutstanding = students.reduce(
+        (sum, student) => sum + parseFloat(student.balance || 0),
+        0
       );
 
       summary = {
         query: `Students with paid fees less than ₹${amount}`,
         total_count: students.length,
-        students: students.map(student => ({
+        students: students.map((student) => ({
           stud_id: student.stud_id,
           name: student.name,
           class: student.class,
           paid: student.total_paid,
-          balance: student.balance
+          balance: student.balance,
         })),
-        total_outstanding: totalOutstanding.toString()
+        total_outstanding: totalOutstanding.toString(),
       };
-    } else if (parameters.criteria && parameters.criteria.includes("balance_more_than")) {
+    } else if (
+      parameters.criteria &&
+      parameters.criteria.includes("balance_more_than")
+    ) {
       const amount = parameters.amount || "15000";
-      const students = await getStudentsWithFeeCriteria('balance_more_than', amount);
-      
-      const totalOutstanding = students.reduce((sum, student) => 
-        sum + parseFloat(student.balance || 0), 0
+      const students = await getStudentsWithFeeCriteria(
+        "balance_more_than",
+        amount
+      );
+
+      const totalOutstanding = students.reduce(
+        (sum, student) => sum + parseFloat(student.balance || 0),
+        0
       );
 
       summary = {
         query: `Students with balance more than ₹${amount}`,
         total_count: students.length,
-        students: students.map(student => ({
+        students: students.map((student) => ({
           stud_id: student.stud_id,
           name: student.name,
           class: student.class,
           paid: student.total_paid,
-          balance: student.balance
+          balance: student.balance,
         })),
-        total_outstanding: totalOutstanding.toString()
+        total_outstanding: totalOutstanding.toString(),
       };
-    } else if (parameters.criteria && parameters.criteria.includes("outstanding")) {
-      const students = await getStudentsWithFeeCriteria('outstanding_fees');
-      
-      const totalOutstanding = students.reduce((sum, student) => 
-        sum + parseFloat(student.balance || 0), 0
+    } else if (
+      parameters.criteria &&
+      parameters.criteria.includes("outstanding")
+    ) {
+      const students = await getStudentsWithFeeCriteria("outstanding_fees");
+
+      const totalOutstanding = students.reduce(
+        (sum, student) => sum + parseFloat(student.balance || 0),
+        0
       );
 
       summary = {
         query: "All students with outstanding fees",
         total_count: students.length,
-        students: students.map(student => ({
+        students: students.map((student) => ({
           stud_id: student.stud_id,
           name: student.name,
           class: student.class,
-          balance: student.balance
+          balance: student.balance,
         })),
-        total_outstanding: totalOutstanding.toString()
+        total_outstanding: totalOutstanding.toString(),
       };
     } else {
       // Default aggregate summary (only when no specific criteria)
       const allStudents = await getAllStudents();
       const allFees = await getAllFees();
-      
-      const totalFeesCollected = allFees.reduce((sum, fee) => 
-        sum + parseFloat(fee.total_paid || 0), 0
+
+      const totalFeesCollected = allFees.reduce(
+        (sum, fee) => sum + parseFloat(fee.total_paid || 0),
+        0
       );
-      
-      const totalOutstanding = allFees.reduce((sum, fee) => 
-        sum + parseFloat(fee.balance || 0), 0
+
+      const totalOutstanding = allFees.reduce(
+        (sum, fee) => sum + parseFloat(fee.balance || 0),
+        0
       );
-      
-      const uniqueClasses = [...new Set(allStudents.map(s => s.class))];
+
+      const uniqueClasses = [...new Set(allStudents.map((s) => s.class))];
 
       summary = {
         query: "General summary",
         total_students: allStudents.length,
         classes: uniqueClasses,
         total_fees_collected: totalFeesCollected.toString(),
-        total_outstanding: totalOutstanding.toString()
+        total_outstanding: totalOutstanding.toString(),
       };
     }
 
@@ -310,39 +339,47 @@ async function getPaymentHistoryData(parameters, output_format) {
     // Handle date-based payment queries (all payments on a specific date)
     if (parameters.date_filter || parameters.date_range) {
       console.log("📅 Processing date-based payment query");
-      
+
       const allInstallments = await getAllInstallments();
-      
+
       let filteredInstallments = [];
-      
+
       if (parameters.date_filter) {
         // Single date filter
         const targetDate = parameters.date_filter;
-        filteredInstallments = allInstallments.filter(inst => {
-          const instDate = inst.date.split('T')[0]; // Get date part only
+        filteredInstallments = allInstallments.filter((inst) => {
+          const instDate = inst.date.split("T")[0]; // Get date part only
           return instDate === targetDate;
         });
-        console.log(`📅 Found ${filteredInstallments.length} payments on ${targetDate}`);
-      } else if (parameters.date_range && parameters.date_range.start && parameters.date_range.end) {
+        console.log(
+          `📅 Found ${filteredInstallments.length} payments on ${targetDate}`
+        );
+      } else if (
+        parameters.date_range &&
+        parameters.date_range.start &&
+        parameters.date_range.end
+      ) {
         // Date range filter
         const startDate = new Date(parameters.date_range.start);
         const endDate = new Date(parameters.date_range.end);
-        
-        filteredInstallments = allInstallments.filter(inst => {
+
+        filteredInstallments = allInstallments.filter((inst) => {
           const instDate = new Date(inst.date);
           return instDate >= startDate && instDate <= endDate;
         });
-        console.log(`📅 Found ${filteredInstallments.length} payments between ${parameters.date_range.start} and ${parameters.date_range.end}`);
+        console.log(
+          `📅 Found ${filteredInstallments.length} payments between ${parameters.date_range.start} and ${parameters.date_range.end}`
+        );
       }
 
       // Add student details to each payment
       const allStudents = await getAllStudents();
-      result = filteredInstallments.map(inst => {
-        const student = allStudents.find(s => s.stud_id === inst.stud_id);
+      result = filteredInstallments.map((inst) => {
+        const student = allStudents.find((s) => s.stud_id === inst.stud_id);
         return {
           ...inst,
           parent_name: student?.parent_name || "",
-          phone_no: student?.phone_no || ""
+          phone_no: student?.phone_no || "",
         };
       });
 
@@ -353,7 +390,7 @@ async function getPaymentHistoryData(parameters, output_format) {
         message: `Found ${result.length} payments`,
       };
     }
-    
+
     // Handle individual student payment history (existing logic)
     let student = null;
     if (parameters.stud_id) {

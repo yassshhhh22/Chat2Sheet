@@ -32,7 +32,6 @@ export const handleIncomingMessage = async (req, res) => {
     rawMessage = text;
 
     console.log("📩 Incoming message from:", from);
-    console.log("📩 Message content:", text);
 
     // Check if user has pending confirmation
     if (hasPendingConfirmation(from)) {
@@ -76,7 +75,6 @@ export const handleIncomingMessage = async (req, res) => {
 
       // AI interprets the message → JSON
       parsedData = await parseMessageWithAI(text);
-      console.log("🤖 Parsed write data:", parsedData);
 
       // VALIDATE DATA BEFORE REQUESTING CONFIRMATION
       const validationResult = validateParsedData(parsedData);
@@ -220,3 +218,4 @@ function validateParsedData(parsedData) {
 
   return { isValid: true };
 }
+  

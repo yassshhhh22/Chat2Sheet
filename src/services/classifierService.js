@@ -53,7 +53,6 @@ Examples:
     });
 
     const content = response.choices[0].message.content.trim();
-    console.log("🔍 Raw classifier response:", content);
 
     // Extract JSON
     let jsonStr = content;
@@ -66,11 +65,10 @@ Examples:
     }
 
     const classification = JSON.parse(jsonStr);
-    console.log("✅ Message classified as:", classification);
     return classification;
   } catch (error) {
     console.error("❌ Classification error:", error);
-    // Default to READ for safety
+    // Default to read for safety
     return {
       operation: "READ",
       confidence: 0.5,
@@ -78,3 +76,4 @@ Examples:
     };
   }
 }
+  

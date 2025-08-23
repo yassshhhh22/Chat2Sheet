@@ -416,26 +416,19 @@ export async function getStudentFeeStatus(studId) {
 // Get all installments from Installments sheet
 export async function getAllInstallments() {
   try {
-    console.log("🔍 DEBUG: Fetching installments from sheet:", SHEETS.INSTALLMENTS);
-    
     const response = await sheets.spreadsheets.values.get({
       spreadsheetId: SPREADSHEET_ID,
       range: `${SHEETS.INSTALLMENTS}!A:J`,
     });
 
     const rows = response.data.values;
-    console.log("🔍 DEBUG: Total rows in installments sheet:", rows?.length || 0);
     
     if (!rows || rows.length <= 1) {
-      console.log("🔍 DEBUG: No installment data found");
       return [];
     }
 
-    // Debug: Show header row
-    console.log("🔍 DEBUG: Header row:", rows[0]);
-
     const installments = rows.slice(1).map((row, index) => {
-      const installment = {
+      return {
         inst_id: row[0] || "",
         stud_id: row[1] || "",
         name: row[2] || "",
@@ -447,18 +440,7 @@ export async function getAllInstallments() {
         recorded_by: row[8] || "",
         created_at: row[9] || "",
       };
-      
-      // Debug first few rows
-      if (index < 3) {
-        console.log(`🔍 DEBUG: Row ${index + 2} data:`, row);
-        console.log(`🔍 DEBUG: Mapped installment:`, installment);
-      }
-      
-      return installment;
     });
-
-    console.log("🔍 DEBUG: Total installments processed:", installments.length);
-    console.log("🔍 DEBUG: Sample processed installment:", installments[0]);
     
     return installments;
   } catch (error) {
@@ -470,31 +452,11 @@ export async function getAllInstallments() {
 // Get payment history (installments) for a specific student
 export async function getPaymentHistory(studId, dateRange = null) {
   try {
-    console.log("🔍 DEBUG: Getting payment history for studId:", studId);
-    
     const installments = await getAllInstallments();
-    console.log("🔍 DEBUG: All installments count:", installments.length);
-    
-    // Show first few installments to verify data structure
-    console.log("🔍 DEBUG: First 3 installments:", installments.slice(0, 3));
     
     let studentInstallments = installments.filter(
       (inst) => inst.stud_id === studId
     );
-    
-    console.log("🔍 DEBUG: Student installments found:", studentInstallments.length);
-    console.log("🔍 DEBUG: Student installments data:", studentInstallments);
-
-    // Check if amounts are actually there
-    studentInstallments.forEach((inst, index) => {
-      console.log(`🔍 DEBUG: Payment ${index + 1}:`, {
-        inst_id: inst.inst_id,
-        stud_id: inst.stud_id,
-        amount: inst.installment_amount,
-        date: inst.date,
-        mode: inst.mode
-      });
-    });
 
     if (dateRange && dateRange.start && dateRange.end) {
       studentInstallments = studentInstallments.filter((inst) => {
@@ -582,3 +544,4 @@ export async function getStudentDetails(parameters) {
     throw error;
   }
 }
+       

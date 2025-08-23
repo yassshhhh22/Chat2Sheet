@@ -188,7 +188,6 @@ Input: ${userMessage}
     });
 
     const content = response.choices[0].message.content.trim();
-    console.log("🔍 Raw AI response:", content);
 
     // Extract JSON if wrapped in markdown or extra text
     let jsonStr = content;
@@ -210,7 +209,6 @@ Input: ${userMessage}
       Logs: parsed.Logs || [],
     };
 
-    console.log("✅ Processed AI data:", JSON.stringify(result, null, 2));
     return result;
   } catch (error) {
     console.error("❌ AI parsing error:", error);

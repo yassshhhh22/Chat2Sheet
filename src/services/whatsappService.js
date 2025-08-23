@@ -189,12 +189,6 @@ export async function sendReadResponse(to, result) {
 
       case "aggregate_summary":
         if (result.data) {
-          console.log(
-            "🔍 DEBUG: Total students to show:",
-            result.data.students?.length
-          );
-          console.log("🔍 DEBUG: Students data:", result.data.students);
-
           message += `📊 *${result.data.query}*\n\n`;
 
           if (result.data.total_count) {
@@ -203,12 +197,6 @@ export async function sendReadResponse(to, result) {
 
           if (result.data.students && result.data.students.length > 0) {
             message += `👥 *Complete Students List:*\n`;
-
-            console.log(
-              "🔍 DEBUG: About to loop through",
-              result.data.students.length,
-              "students"
-            );
 
             // Show ALL students - no limits
             result.data.students.forEach((student, index) => {
@@ -221,8 +209,6 @@ export async function sendReadResponse(to, result) {
                 message += `   Balance: ₹${student.balance}\n`;
               message += `\n`;
             });
-
-            console.log("🔍 DEBUG: Final message length:", message.length);
           }
 
           if (result.data.total_outstanding) {
@@ -385,3 +371,4 @@ export async function sendInvoiceDocument(to, filePath, caption) {
     throw error;
   }
 }
+       
