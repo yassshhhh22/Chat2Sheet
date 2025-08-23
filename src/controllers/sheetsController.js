@@ -19,6 +19,7 @@ import {
 } from "../services/invoiceService.js";
 import { sendInvoicePDF } from "../services/whatsappService.js";
 
+
 export async function addStudent(data) {
   try {
     console.log("🔍 addStudent received data:", data);
@@ -132,6 +133,9 @@ export async function addInstallment(data) {
 
     // Generate and send invoice with complete data
     try {
+      // Format parent phone number before passing to invoice function
+      const formattedParentPhone = formatPhoneNumber(student.parent_no);
+      
       await generateAndSendInvoice({
         installmentId: instId,
         studentName: student.name,
@@ -143,7 +147,7 @@ export async function addInstallment(data) {
         totalFee: feeStatus?.total_fees || "0",
         totalPaid: feeStatus?.total_paid || "0",
         balance: feeStatus?.balance || "0",
-        parentPhone: student.parent_no,
+        parentPhone: formattedParentPhone, // Use formatted phone number
         recordedBy: installmentData.recorded_by, // Pass recorded_by
         createdAt: installmentData.created_at, // Pass created_at
       });
@@ -230,13 +234,16 @@ Please find the detailed invoice attached.
 Thank you!
 - School Administration`;
 
+    // Format parent phone number with country code
+    const formattedParentPhone = formatPhoneNumber(invoiceData.parentPhone);
+    
     // Send invoice to parent (if parent phone exists)
-    if (invoiceData.parentPhone && invoiceData.parentPhone !== "") {
-      console.log("📱 Sending invoice to parent:", invoiceData.parentPhone);
-      await sendInvoicePDF(invoiceData.parentPhone, pdfPath, caption);
+    if (formattedParentPhone) {
+      console.log("📱 Sending invoice to parent:", formattedParentPhone);
+      await sendInvoicePDF(formattedParentPhone, pdfPath, caption);
       console.log("✅ Invoice sent to parent successfully");
     } else {
-      console.log("⚠️ No parent phone number found, skipping invoice send");
+      console.log("⚠️ No valid parent phone number found, skipping invoice send");
     }
   } catch (error) {
     console.error("❌ Error in invoice generation/sending:", error);
@@ -252,6 +259,37 @@ Thank you!
       }
     }
   }
+}
+
+// Add phone number formatting utility function
+function formatPhoneNumber(phoneNumber) {
+  if (!phoneNumber || phoneNumber.trim() === "") {
+    return null;
+  }
+  
+  // Clean the phone number (remove spaces, hyphens, etc.)
+  let cleanedNumber = phoneNumber.toString().replace(/[\s\-\(\)]/g, '');
+  
+  // Remove any leading + or 0
+  cleanedNumber = cleanedNumber.replace(/^[\+0]+/, '');
+  
+  // If number already starts with 91, return as is
+  if (cleanedNumber.startsWith('91')) {
+    return cleanedNumber;
+  }
+  
+  // If it's a 10-digit Indian number, add 91
+  if (cleanedNumber.length === 10 && /^[6-9]\d{9}$/.test(cleanedNumber)) {
+    return '91' + cleanedNumber;
+  }
+  
+  // If it's an 11-digit number starting with 1-9, assume it needs 91
+  if (cleanedNumber.length === 10) {
+    return '91' + cleanedNumber;
+  }
+  
+  console.warn("⚠️ Invalid phone number format:", phoneNumber);
+  return null;
 }
 
 // New function to process complete AI data
@@ -493,10 +531,13 @@ async function processInvoiceGeneration(installmentData, studentData) {
     // Generate PDF
     pdfPath = await generateInvoicePDF(invoiceData);
 
-    // Send to parent via WhatsApp
-    if (studentData.phone_no) {
-      await sendInvoicePDF(studentData.phone_no, pdfPath, studentData.name);
-      console.log("✅ Invoice sent to parent:", studentData.phone_no);
+    // Format and send to parent via WhatsApp
+    const formattedParentPhone = formatPhoneNumber(studentData.phone_no || studentData.parent_no);
+    if (formattedParentPhone) {
+      await sendInvoicePDF(formattedParentPhone, pdfPath, studentData.name);
+      console.log("✅ Invoice sent to parent:", formattedParentPhone);
+    } else {
+      console.log("⚠️ No valid parent phone number found for:", studentData.name);
     }
 
     return { success: true, pdfPath };
