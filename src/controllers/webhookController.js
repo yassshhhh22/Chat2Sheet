@@ -71,14 +71,35 @@ export const handleIncomingMessage = async (req, res) => {
       result = await processReadRequest(readRequest, from);
       await sendReadResponse(from, result);
     } else {
-      // WRITE flow: Add confirmation step
+      // WRITE flow: Add validation before confirmation
       console.log("✍️ Processing WRITE request...");
 
       // AI interprets the message → JSON
       parsedData = await parseMessageWithAI(text);
       console.log("🤖 Parsed write data:", parsedData);
 
-      // REQUEST CONFIRMATION INSTEAD OF DIRECT PROCESSING
+      // VALIDATE DATA BEFORE REQUESTING CONFIRMATION
+      const validationResult = validateParsedData(parsedData);
+      if (!validationResult.isValid) {
+        await sendWhatsAppMessage(from, validationResult.errorMessage);
+
+        // Log the validation error
+        await logAction(
+          "validation_failed",
+          parsedData.Students?.[0]?.name ||
+            parsedData.Installments?.[0]?.stud_id ||
+            "",
+          rawMessage,
+          JSON.stringify(parsedData),
+          "error",
+          validationResult.errorMessage,
+          `whatsapp_${from}`
+        );
+
+        return res.status(200).json({ success: true });
+      }
+
+      // REQUEST CONFIRMATION ONLY FOR VALID DATA
       const confirmationRequest = await requestWriteConfirmation(
         from,
         parsedData,
@@ -92,7 +113,7 @@ export const handleIncomingMessage = async (req, res) => {
         "confirmation_requested",
         parsedData.Students?.[0]?.name || "",
         rawMessage,
-        parsedData,
+        JSON.stringify(parsedData),
         "pending",
         "",
         `whatsapp_${from}`
@@ -157,3 +178,45 @@ const processConfirmedOperation = async (confirmationResult) => {
     };
   }
 };
+
+// Add this validation function
+function validateParsedData(parsedData) {
+  // Validate installments
+  if (parsedData.Installments && parsedData.Installments.length > 0) {
+    for (const installment of parsedData.Installments) {
+      if (!installment.stud_id && !installment.name) {
+        return {
+          isValid: false,
+          errorMessage:
+            '❌ *Invalid Request*\n\nTo add an installment, please provide either:\n• Student ID (e.g., STU001)\n• Student name\n\nExample: "STU001 paid 100" or "Rahul paid 100"',
+        };
+      }
+
+      if (
+        !installment.installment_amount ||
+        installment.installment_amount === "0"
+      ) {
+        return {
+          isValid: false,
+          errorMessage:
+            '❌ *Invalid Request*\n\nPlease specify a valid installment amount.\n\nExample: "STU001 paid 100"',
+        };
+      }
+    }
+  }
+
+  // Validate students
+  if (parsedData.Students && parsedData.Students.length > 0) {
+    for (const student of parsedData.Students) {
+      if (!student.name || !student.class) {
+        return {
+          isValid: false,
+          errorMessage:
+            '❌ *Invalid Request*\n\nTo add a new student, please provide:\n• Student name\n• Class\n\nExample: "Add student Rahul class 10"',
+        };
+      }
+    }
+  }
+
+  return { isValid: true };
+}

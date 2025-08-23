@@ -1,6 +1,7 @@
 import axios from "axios";
-import fs from "fs/promises";
+import fs from "fs-extra"; // Use fs-extra for better file handling
 import path from "path";
+import FormData from "form-data"; // Import form-data directly
 
 const WHATSAPP_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
 const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
@@ -248,91 +249,39 @@ export async function sendReadResponse(to, result) {
   return await sendWhatsAppMessage(to, message);
 }
 
-export async function sendInvoiceDocument(to, filePath, caption) {
-  try {
-    console.log("📎 Sending invoice document to:", to);
-
-    const formData = new FormData();
-
-    // Add the PDF file
-    const fileBuffer = await fs.readFile(filePath);
-    const blob = new Blob([fileBuffer], { type: "application/pdf" });
-    formData.append("file", blob, path.basename(filePath));
-
-    // First, upload the media
-    const mediaResponse = await fetch(
-      `https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/media`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-        },
-        body: formData,
-      }
-    );
-
-    const mediaData = await mediaResponse.json();
-    console.log("📎 Media upload response:", mediaData);
-
-    if (!mediaData.id) {
-      throw new Error("Failed to upload media");
-    }
-
-    // Send the document message
-    const messageData = {
-      messaging_product: "whatsapp",
-      to: to,
-      type: "document",
-      document: {
-        id: mediaData.id,
-        caption: caption,
-        filename: path.basename(filePath),
-      },
-    };
-
-    const response = await fetch(WHATSAPP_API_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${WHATSAPP_TOKEN}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(messageData),
-    });
-
-    const result = await response.json();
-    console.log("📎 Document send response:", result);
-
-    return result;
-  } catch (error) {
-    console.error("❌ Error sending invoice document:", error);
-    throw error;
-  }
-}
-
 export async function sendInvoicePDF(phoneNumber, pdfPath, studentName) {
   try {
     console.log("📎 Sending invoice PDF to:", phoneNumber);
 
-    // Read the file as buffer
+    // Read the file as a buffer to ensure it's not corrupted
     const fileBuffer = await fs.readFile(pdfPath);
-    const formData = new FormData();
-    const blob = new Blob([fileBuffer], { type: "application/pdf" });
-    formData.append("file", blob, path.basename(pdfPath));
 
-    // First upload the PDF as media
-    const mediaResponse = await fetch(
-      `https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/media`,
+    const FormData = (await import("form-data")).default;
+    const formData = new FormData();
+
+    // Append the buffer directly instead of using a stream
+    formData.append("file", fileBuffer, {
+      filename: path.basename(pdfPath),
+      contentType: "application/pdf",
+      knownLength: fileBuffer.length, // Specify the length
+    });
+
+    // Use axios for media upload with query parameters
+    const mediaResponse = await axios.post(
+      `https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/media?messaging_product=whatsapp&type=application/pdf`,
+      formData,
       {
-        method: "POST",
         headers: {
           Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+          ...formData.getHeaders(),
         },
-        body: formData,
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
       }
     );
 
-    const mediaData = await mediaResponse.json();
-    console.log("📎 Media upload response:", mediaData);
+    const mediaData = mediaResponse.data;
+    console.log("✅ Media uploaded successfully");
 
     if (!mediaData.id) {
       throw new Error("Failed to upload media: " + JSON.stringify(mediaData));
@@ -360,10 +309,79 @@ export async function sendInvoicePDF(phoneNumber, pdfPath, studentName) {
     });
 
     const result = await response.json();
-    console.log("✅ Invoice sent to:", phoneNumber);
+    console.log("✅ Invoice sent successfully");
     return result;
   } catch (error) {
-    console.error("❌ Error sending invoice:", error);
+    console.error("❌ Error sending invoice:", error.message);
+    throw error;
+  }
+}
+
+export async function sendInvoiceDocument(to, filePath, caption) {
+  try {
+    console.log("📎 Sending invoice document to:", to);
+
+    // Read the file as a buffer
+    const fileBuffer = await fs.readFile(filePath);
+
+    const FormData = (await import("form-data")).default;
+    const formData = new FormData();
+
+    // Append the buffer directly
+    formData.append("file", fileBuffer, {
+      filename: path.basename(filePath),
+      contentType: "application/pdf",
+      knownLength: fileBuffer.length,
+    });
+
+    // Use axios for media upload with query parameters
+    const mediaResponse = await axios.post(
+      `https://graph.facebook.com/v18.0/${PHONE_NUMBER_ID}/media?messaging_product=whatsapp&type=application/pdf`,
+      formData,
+      {
+        headers: {
+          Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+          ...formData.getHeaders(),
+        },
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+      }
+    );
+
+    const mediaData = mediaResponse.data;
+    console.log("✅ Media uploaded successfully");
+
+    if (!mediaData.id) {
+      throw new Error("Failed to upload media: " + JSON.stringify(mediaData));
+    }
+
+    // Send the document message
+    const messageData = {
+      messaging_product: "whatsapp",
+      to: to,
+      type: "document",
+      document: {
+        id: mediaData.id,
+        caption: caption,
+        filename: path.basename(filePath),
+      },
+    };
+
+    const response = await fetch(WHATSAPP_API_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${WHATSAPP_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(messageData),
+    });
+
+    const result = await response.json();
+    console.log("📎 Document sent successfully");
+
+    return result;
+  } catch (error) {
+    console.error("❌ Error sending invoice document:", error.message);
     throw error;
   }
 }

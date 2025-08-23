@@ -13,8 +13,11 @@ import {
   handleConfirmationResponse,
   hasPendingConfirmation,
 } from "../services/aiService.js";
-import { generateInvoicePDF, cleanupInvoiceFile } from '../services/invoiceService.js';
-import { sendInvoicePDF } from '../services/whatsappService.js';
+import {
+  generateInvoicePDF,
+  cleanupInvoiceFile,
+} from "../services/invoiceService.js";
+import { sendInvoicePDF } from "../services/whatsappService.js";
 
 export async function addStudent(data) {
   try {
@@ -127,7 +130,7 @@ export async function addInstallment(data) {
     // Get updated fee status for invoice
     const feeStatus = await getStudentFeeStatus(student.stud_id);
 
-    // Generate and send invoice
+    // Generate and send invoice with complete data
     try {
       await generateAndSendInvoice({
         installmentId: instId,
@@ -141,6 +144,8 @@ export async function addInstallment(data) {
         totalPaid: feeStatus?.total_paid || "0",
         balance: feeStatus?.balance || "0",
         parentPhone: student.parent_no,
+        recordedBy: installmentData.recorded_by, // Pass recorded_by
+        createdAt: installmentData.created_at, // Pass created_at
       });
     } catch (invoiceError) {
       console.error("❌ Error generating/sending invoice:", invoiceError);
@@ -170,6 +175,7 @@ export async function addInstallment(data) {
         student_name: student.name,
         date: installmentData.date,
         mode: installmentData.mode,
+        recorded_by: installmentData.recorded_by, // Include in response
       },
     };
   } catch (error) {
@@ -194,13 +200,20 @@ export async function addInstallment(data) {
   }
 }
 
-// New function to generate and send invoice
+// Fix the generateAndSendInvoice function to include recordedBy data
 async function generateAndSendInvoice(invoiceData) {
+  let pdfPath = null;
   try {
     console.log("📄 Starting invoice generation process...");
 
-    // Generate PDF invoice
-    const pdfPath = await generateInvoicePDF(invoiceData);
+    // Generate PDF invoice with complete data
+    const completeInvoiceData = {
+      ...invoiceData,
+      recordedBy: invoiceData.recordedBy, // Make sure this is passed
+      createdAt: invoiceData.createdAt, // Make sure this is passed
+    };
+
+    pdfPath = await generateInvoicePDF(completeInvoiceData);
 
     // Prepare message for parent
     const caption = `Dear Parent,
@@ -220,19 +233,24 @@ Thank you!
     // Send invoice to parent (if parent phone exists)
     if (invoiceData.parentPhone && invoiceData.parentPhone !== "") {
       console.log("📱 Sending invoice to parent:", invoiceData.parentPhone);
-      await sendInvoiceDocument(invoiceData.parentPhone, pdfPath, caption);
+      await sendInvoicePDF(invoiceData.parentPhone, pdfPath, caption);
       console.log("✅ Invoice sent to parent successfully");
     } else {
       console.log("⚠️ No parent phone number found, skipping invoice send");
     }
-
-    // Clean up the PDF file after sending
-    setTimeout(async () => {
-      await cleanupInvoiceFile(pdfPath);
-    }, 5000); // Wait 5 seconds before cleanup
   } catch (error) {
     console.error("❌ Error in invoice generation/sending:", error);
     throw error;
+  } finally {
+    // Always cleanup the PDF file, regardless of success or failure
+    if (pdfPath) {
+      try {
+        await cleanupInvoiceFile(pdfPath);
+        console.log("🗑️ Invoice file cleaned up successfully");
+      } catch (cleanupError) {
+        console.error("❌ Error cleaning up invoice file:", cleanupError);
+      }
+    }
   }
 }
 
@@ -452,6 +470,7 @@ export const updateData = async (req, res) => {
 
 // Add this function after your existing installment processing
 async function processInvoiceGeneration(installmentData, studentData) {
+  let pdfPath = null;
   try {
     console.log("🧾 Processing invoice generation for:", studentData.name);
 
@@ -463,14 +482,16 @@ async function processInvoiceGeneration(installmentData, studentData) {
       studentName: studentData.name,
       class: studentData.class,
       installmentAmount: installmentData.installment_amount,
-      paymentMode: installmentData.mode || 'Cash',
+      paymentMode: installmentData.mode || "Cash",
       totalFee: studentData.total_fees || 0,
       totalPaid: studentData.total_paid || 0,
-      balance: studentData.balance || 0
+      balance: studentData.balance || 0,
+      recordedBy: installmentData.recorded_by, // Add this field
+      createdAt: installmentData.created_at, // Add this field
     };
 
     // Generate PDF
-    const pdfPath = await generateInvoicePDF(invoiceData);
+    pdfPath = await generateInvoicePDF(invoiceData);
 
     // Send to parent via WhatsApp
     if (studentData.phone_no) {
@@ -478,18 +499,91 @@ async function processInvoiceGeneration(installmentData, studentData) {
       console.log("✅ Invoice sent to parent:", studentData.phone_no);
     }
 
-    // Cleanup PDF file after sending
-    setTimeout(() => {
-      cleanupInvoiceFile(pdfPath);
-    }, 5000); // Clean up after 5 seconds
-
     return { success: true, pdfPath };
   } catch (error) {
     console.error("❌ Error processing invoice:", error);
     return { success: false, error: error.message };
+  } finally {
+    // Always cleanup the PDF file
+    if (pdfPath) {
+      try {
+        await cleanupInvoiceFile(pdfPath);
+        console.log("🗑️ Invoice file cleaned up after generation");
+      } catch (cleanupError) {
+        console.error("❌ Error cleaning up invoice file:", cleanupError);
+      }
+    }
   }
 }
 
 // Modify your existing installment processing function to include invoice generation
 // Add this call after successfully adding an installment:
 // await processInvoiceGeneration(installmentData, studentData);
+export async function updateFeesSummary(studId) {
+  try {
+    console.log("🔍 Updating fees summary for student:", studId);
+
+    // Use manual calculation to update totals
+    await updateFeesSummaryTotals(studId);
+
+    await logAction(
+      "update_fees_summary",
+      studId,
+      `Fees summary updated for student ${studId}`,
+      { stud_id: studId },
+      "success",
+      "",
+      "system"
+    );
+
+    return {
+      success: true,
+      message: `Fees summary updated successfully for student ${studId}`,
+      stud_id: studId,
+    };
+  } catch (error) {
+    await logAction(
+      "update_fees_summary",
+      studId,
+      `Failed to update fees summary for student ${studId}`,
+      { stud_id: studId },
+      "error",
+      error.message,
+      "system"
+    );
+    throw error;
+  }
+}
+
+export async function logAction(
+  action,
+  studId,
+  rawMessage,
+  parsedJson,
+  result,
+  errorMsg,
+  performedBy
+) {
+  try {
+    const logData = {
+      action,
+      stud_id: studId || "",
+      raw_message: rawMessage || "",
+      parsed_json:
+        typeof parsedJson === "object"
+          ? JSON.stringify(parsedJson)
+          : parsedJson || "",
+      result: result || "success",
+      error_msg: errorMsg || "",
+      performed_by: performedBy || "system",
+      timestamp: new Date().toISOString(),
+    };
+
+    await addLogToSheet(logData);
+    return { success: true, message: "Action logged successfully" };
+  } catch (error) {
+    console.error("❌ Error logging action:", error);
+    // Don't throw here to avoid infinite loop
+    return { success: false, error: error.message };
+  }
+}

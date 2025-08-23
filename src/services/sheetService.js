@@ -1,7 +1,9 @@
 import { google } from "googleapis";
 
 const auth = new google.auth.GoogleAuth({
-  keyFile: process.env.GOOGLE_CREDENTIALS_FILE || "chat2sheet-469716-1bebf546c040.json", // Fixed: Use correct credentials file
+  keyFile:
+    process.env.GOOGLE_CREDENTIALS_FILE ||
+    "chat2sheet-469716-1bebf546c040.json", // Fixed: Use correct credentials file
   scopes: ["https://www.googleapis.com/auth/spreadsheets"],
 });
 
@@ -83,8 +85,11 @@ export const processAIData = async (parsedData) => {
           );
 
           if (immediateInstallmentIndex !== -1) {
-            const immediateInstallment = parsedData.Installments[immediateInstallmentIndex];
-            console.log("💰 Processing immediate installment for new student...");
+            const immediateInstallment =
+              parsedData.Installments[immediateInstallmentIndex];
+            console.log(
+              "💰 Processing immediate installment for new student..."
+            );
 
             try {
               const installmentData = {
@@ -92,7 +97,9 @@ export const processAIData = async (parsedData) => {
                 stud_id: studentResult.stud_id,
                 name: studentData.name,
                 class: studentData.class,
-                date: immediateInstallment.date || new Date().toISOString().split("T")[0], // Auto-generate date
+                date:
+                  immediateInstallment.date ||
+                  new Date().toISOString().split("T")[0], // Auto-generate date
                 recorded_by: immediateInstallment.recorded_by || "system",
               };
 
@@ -134,21 +141,41 @@ export const processAIData = async (parsedData) => {
         const installmentData = parsedData.Installments[index];
 
         if (processedInstallments.has(index)) {
-          console.log("⏭️ Skipping already processed installment at index:", index);
+          console.log(
+            "⏭️ Skipping already processed installment at index:",
+            index
+          );
           continue;
         }
 
         try {
+          // Validate student ID or name before processing
+          if (!installmentData.stud_id && !installmentData.name) {
+            console.error(
+              "❌ Invalid installment data: No student ID or name provided"
+            );
+            results.installments.push({
+              success: false,
+              error:
+                "Invalid student ID or name provided. Please specify either student ID or student name.",
+              data: installmentData,
+            });
+            continue;
+          }
+
           // Ensure required fields are populated with auto-generated values
           const completeInstallmentData = {
             ...installmentData,
-            date: installmentData.date || new Date().toISOString().split("T")[0], // Auto-generate date
+            date:
+              installmentData.date || new Date().toISOString().split("T")[0], // Auto-generate date
             mode: installmentData.mode || "cash", // Default payment mode
             remarks: installmentData.remarks || "",
             recorded_by: installmentData.recorded_by || "system",
           };
 
-          const installmentResult = await addInstallment(completeInstallmentData);
+          const installmentResult = await addInstallment(
+            completeInstallmentData
+          );
           results.installments.push(installmentResult);
           console.log("✅ Installment added:", installmentResult);
 
@@ -197,7 +224,10 @@ export const processAIData = async (parsedData) => {
     }
 
     // 4. Update fees summary for all affected students
-    console.log("🔄 Updating fees summary for students:", Array.from(studentsToUpdate));
+    console.log(
+      "🔄 Updating fees summary for students:",
+      Array.from(studentsToUpdate)
+    );
     for (const studId of studentsToUpdate) {
       try {
         const updateResult = await updateFeesSummary(studId);
