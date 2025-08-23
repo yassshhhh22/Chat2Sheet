@@ -6,12 +6,18 @@ import {
   addInstallmentToSheet,
   addLogToSheet,
   updateFeesSummaryTotals,
+  getStudentFeeStatus, // Add this import
 } from "../services/sheetsService.js";
 import {
   requestWriteConfirmation,
   handleConfirmationResponse,
   hasPendingConfirmation,
 } from "../services/aiService.js";
+import {
+  generateInvoicePDF,
+  cleanupInvoiceFile,
+} from "../services/invoiceService.js";
+import { sendInvoiceDocument } from "../services/whatsappService.js";
 
 export async function addStudent(data) {
   try {
@@ -121,6 +127,29 @@ export async function addInstallment(data) {
     await updateFeesSummaryTotals(student.stud_id);
     console.log("✅ Fees summary updated for student:", student.stud_id);
 
+    // Get updated fee status for invoice
+    const feeStatus = await getStudentFeeStatus(student.stud_id);
+
+    // Generate and send invoice
+    try {
+      await generateAndSendInvoice({
+        installmentId: instId,
+        studentName: student.name,
+        studentId: student.stud_id,
+        class: student.class,
+        installmentAmount: installmentData.installment_amount,
+        paymentDate: installmentData.date,
+        paymentMode: installmentData.mode,
+        totalFee: feeStatus?.total_fees || "0",
+        totalPaid: feeStatus?.total_paid || "0",
+        balance: feeStatus?.balance || "0",
+        parentPhone: student.parent_no,
+      });
+    } catch (invoiceError) {
+      console.error("❌ Error generating/sending invoice:", invoiceError);
+      // Don't fail the whole operation if invoice fails
+    }
+
     // Log the action
     await logAction(
       "add_installment",
@@ -159,6 +188,53 @@ export async function addInstallment(data) {
       error.message,
       data.recorded_by || "system"
     );
+
+    return {
+      success: false,
+      error: error.message,
+      data: data,
+    };
+  }
+}
+
+// New function to generate and send invoice
+async function generateAndSendInvoice(invoiceData) {
+  try {
+    console.log("📄 Starting invoice generation process...");
+
+    // Generate PDF invoice
+    const pdfPath = await generateInvoicePDF(invoiceData);
+
+    // Prepare message for parent
+    const caption = `Dear Parent,
+
+We have received ₹${invoiceData.installmentAmount} on ${invoiceData.paymentDate} for ${invoiceData.studentName} (${invoiceData.class}).
+
+Payment Details:
+• Amount: ₹${invoiceData.installmentAmount}
+• Mode: ${invoiceData.paymentMode}
+• Remaining Balance: ₹${invoiceData.balance}
+
+Please find the detailed invoice attached.
+
+Thank you!
+- School Administration`;
+
+    // Send invoice to parent (if parent phone exists)
+    if (invoiceData.parentPhone && invoiceData.parentPhone !== "") {
+      console.log("📱 Sending invoice to parent:", invoiceData.parentPhone);
+      await sendInvoiceDocument(invoiceData.parentPhone, pdfPath, caption);
+      console.log("✅ Invoice sent to parent successfully");
+    } else {
+      console.log("⚠️ No parent phone number found, skipping invoice send");
+    }
+
+    // Clean up the PDF file after sending
+    setTimeout(async () => {
+      await cleanupInvoiceFile(pdfPath);
+    }, 5000); // Wait 5 seconds before cleanup
+  } catch (error) {
+    console.error("❌ Error in invoice generation/sending:", error);
     throw error;
   }
 }

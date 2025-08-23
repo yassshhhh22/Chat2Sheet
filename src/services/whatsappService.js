@@ -1,4 +1,6 @@
 import axios from "axios";
+import fs from "fs/promises";
+import path from "path";
 
 const WHATSAPP_TOKEN = process.env.WHATSAPP_ACCESS_TOKEN;
 const PHONE_NUMBER_ID = process.env.WHATSAPP_PHONE_NUMBER_ID;
@@ -140,17 +142,19 @@ export async function sendReadResponse(to, result) {
               const date = payment.date || "Unknown date";
               const mode = payment.mode || "Unknown mode";
               const instId = payment.inst_id || "N/A";
-              
+
               message += `${index + 1}. 🆔 ${instId}\n`;
               message += `   💰 Amount: ₹${amount}\n`;
               message += `   📅 Date: ${date}\n`;
               message += `   💳 Mode: ${mode}\n`;
-              if (payment.remarks) message += `   📝 Remarks: ${payment.remarks}\n`;
+              if (payment.remarks)
+                message += `   📝 Remarks: ${payment.remarks}\n`;
               message += `\n`;
             });
-            
+
             const total = result.data.reduce(
-              (sum, payment) => sum + parseFloat(payment.installment_amount || 0),
+              (sum, payment) =>
+                sum + parseFloat(payment.installment_amount || 0),
               0
             );
             message += `💰 *Total Paid:* ₹${total}`;
@@ -207,9 +211,13 @@ export async function sendReadResponse(to, result) {
 
             // Show ALL students - no limits
             result.data.students.forEach((student, index) => {
-              message += `${index + 1}. ${student.name} (${student.stud_id}) - Class ${student.class}\n`;
-              if (student.paid) message += `   Paid: ₹${student.paid}, Balance: ₹${student.balance}\n`;
-              if (student.balance && !student.paid) message += `   Balance: ₹${student.balance}\n`;
+              message += `${index + 1}. ${student.name} (${
+                student.stud_id
+              }) - Class ${student.class}\n`;
+              if (student.paid)
+                message += `   Paid: ₹${student.paid}, Balance: ₹${student.balance}\n`;
+              if (student.balance && !student.paid)
+                message += `   Balance: ₹${student.balance}\n`;
               message += `\n`;
             });
 
@@ -238,4 +246,68 @@ export async function sendReadResponse(to, result) {
   }
 
   return await sendWhatsAppMessage(to, message);
+}
+
+export async function sendInvoiceDocument(to, filePath, caption) {
+  try {
+    console.log("📎 Sending invoice document to:", to);
+
+    const formData = new FormData();
+
+    // Add the PDF file
+    const fileBuffer = await fs.readFile(filePath);
+    const blob = new Blob([fileBuffer], { type: "application/pdf" });
+    formData.append("media", blob, path.basename(filePath));
+
+    // First, upload the media
+    const mediaResponse = await fetch(
+      `https://graph.facebook.com/v20.0/${PHONE_NUMBER_ID}/media`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${ACCESS_TOKEN}`,
+        },
+        body: formData,
+      }
+    );
+
+    const mediaData = await mediaResponse.json();
+    console.log("📎 Media upload response:", mediaData);
+
+    if (!mediaData.id) {
+      throw new Error("Failed to upload media");
+    }
+
+    // Send the document message
+    const messageData = {
+      messaging_product: "whatsapp",
+      to: to,
+      type: "document",
+      document: {
+        id: mediaData.id,
+        caption: caption,
+        filename: path.basename(filePath),
+      },
+    };
+
+    const response = await fetch(
+      `https://graph.facebook.com/v20.0/${PHONE_NUMBER_ID}/messages`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${ACCESS_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(messageData),
+      }
+    );
+
+    const result = await response.json();
+    console.log("📎 Document send response:", result);
+
+    return result;
+  } catch (error) {
+    console.error("❌ Error sending invoice document:", error);
+    throw error;
+  }
 }
