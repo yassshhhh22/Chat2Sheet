@@ -105,19 +105,30 @@ export const verifyPaymentSuccess = async (req, res) => {
     if (generated_signature === signature) {
       console.log(`✅ Payment verified: ${payment_id}`);
 
-      // REMOVE THIS SECTION - Don't process payment here, let webhook handle it
-      // The webhook will handle the actual payment processing and invoice generation
+      // Get order details to extract student info
+      try {
+        const order = await razorpay.orders.fetch(order_id);
+        const studid = order.notes.studid;
+        const amount_paid = parseFloat(amount);
 
-      // Just show success page without processing
+        // Process payment through AI system (bypass confirmation)
+        await processPaymentThroughAI(studid, amount_paid, payment_id);
+        
+        console.log(`✅ Payment processed for student: ${studid}`);
+      } catch (processingError) {
+        console.error("❌ Payment processing error:", processingError.message);
+        // Still show success to user, but log the error
+      }
+
       res.send(`
         <html>
           <head>
             <title>Payment Successful</title>
             <style>
-              body { font-family: Arial, sans-serif; text-align: center; padding: 50px; background: #f8f9fa; }
-              .success-container { background: white; max-width: 500px; margin: 0 auto; padding: 40px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-              .success-icon { font-size: 60px; margin-bottom: 20px; }
-              .amount { font-size: 24px; color: #28a745; font-weight: bold; margin: 20px 0; }
+              body { font-family: Arial; text-align: center; padding: 50px; background: #f8f9fa; }
+              .success-container { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; }
+              .success-icon { font-size: 60px; color: #28a745; margin-bottom: 20px; }
+              .amount { font-size: 24px; color: #007cba; font-weight: bold; margin: 20px 0; }
               .transaction-id { background: #f8f9fa; padding: 10px; border-radius: 5px; font-family: monospace; margin: 20px 0; }
             </style>
           </head>
@@ -234,8 +245,8 @@ async function sendPaymentConfirmation(studid, amount_paid, transaction_id) {
     if (student && student.parent_no) {
       // Format phone number to include country code
       let phoneNumber = student.parent_no.toString();
-      if (!phoneNumber.startsWith("91")) {
-        phoneNumber = "91" + phoneNumber;
+      if (!phoneNumber.startsWith('91')) {
+        phoneNumber = '91' + phoneNumber;
       }
 
       // Get updated fee status
@@ -246,9 +257,7 @@ async function sendPaymentConfirmation(studid, amount_paid, transaction_id) {
 
 Dear Parent,
 
-We have received ₹${amount_paid} on ${
-        new Date().toISOString().split("T")[0]
-      } for ${student.name} (${student.class}).
+We have received ₹${amount_paid} on ${new Date().toISOString().split('T')[0]} for ${student.name} (${student.class}).
 
 *Payment Details:*
 • Amount: ₹${amount_paid}
@@ -267,7 +276,7 @@ Thank you!
       console.log(`⚠️ No parent contact found for: ${studid}`);
     }
   } catch (error) {
-    // Handle WhatsApp restrictions gracefully
+    // Handle WhatsApp restrictions gracefully  
     if (error.response?.data?.error?.code === 131030) {
       console.log(`⚠️ WhatsApp: Phone number not in allowed list`);
     } else {
@@ -1059,3 +1068,39 @@ export const verifyPayment = async (req, res) => {
     res.status(500).json({ error: "Payment verification failed" });
   }
 };
+
+// Add this new function to process payment through AI system
+async function processPaymentThroughAI(studid, amount_paid, transaction_id) {
+  try {
+    console.log(`🤖 Processing AI payment for: ${studid} (₹${amount_paid})`);
+    
+    // Create AI command similar to your existing format
+    const aiCommand = `Add installment
+Student ID: ${studid}
+Amount: ${amount_paid}
+Mode: Online
+Recorded by: Razorpay: ${transaction_id}
+Date: ${new Date().toISOString().split('T')[0]}`;
+
+    // Import the processWebhookPayment function that bypasses confirmation
+    const { processWebhookPayment } = await import("../services/aiService.js");
+    
+    // Process through your existing webhook payment function (bypasses confirmation)
+    const result = await processWebhookPayment(aiCommand);
+    
+    if (result.success) {
+      console.log("✅ AI payment processing completed");
+      
+      // Send payment confirmation to parent
+      await sendPaymentConfirmation(studid, amount_paid, transaction_id);
+    } else {
+      console.error("❌ AI processing failed");
+      throw new Error("Payment processing failed");
+    }
+    
+    return result;
+  } catch (error) {
+    console.error("❌ AI payment processing error:", error.message);
+    throw error;
+  }
+}
