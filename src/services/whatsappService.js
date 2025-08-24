@@ -373,7 +373,7 @@ export async function sendInvoiceDocument(to, filePath, caption) {
 }
 
 export async function sendPaymentLink(to, studentData) {
-  const paymentLink = `https://${process.env.RENDER_SERVICE_NAME}/payments/${studentData.stud_id}`;
+  const paymentLink = `https://${process.env.RENDER_SERVICE_NAME}.onrender.com/payments/${studentData.stud_id}`;
 
   const message = `🔔 *Fee Payment - ${process.env.SCHOOL_NAME || "School"}*
 
