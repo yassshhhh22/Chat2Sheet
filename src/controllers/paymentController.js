@@ -243,6 +243,12 @@ async function sendPaymentConfirmation(studid, amount_paid, transaction_id) {
   try {
     const student = await findStudentById(studid);
     if (student && student.parent_no) {
+      // Format phone number to include country code
+      let phoneNumber = student.parent_no.toString();
+      if (!phoneNumber.startsWith('91')) {
+        phoneNumber = '91' + phoneNumber;
+      }
+
       const successMessage = `✅ *Payment Received Successfully!*
 
 💰 *Amount:* ₹${amount_paid}
@@ -257,13 +263,18 @@ Thank you for your payment!
 
 *${process.env.SCHOOL_NAME || "School"} Management*`;
 
-      await sendWhatsAppMessage(student.parent_no, successMessage);
+      await sendWhatsAppMessage(phoneNumber, successMessage);
       console.log(`✅ Payment confirmation sent`);
     } else {
       console.log(`⚠️ No parent contact found for: ${studid}`);
     }
   } catch (error) {
-    console.error("❌ Payment confirmation error:", error.message);
+    // Handle WhatsApp restrictions gracefully  
+    if (error.response?.data?.error?.code === 131030) {
+      console.log(`⚠️ WhatsApp: Phone number not in allowed list`);
+    } else {
+      console.error("❌ Payment confirmation error:", error.message);
+    }
   }
 }
 
