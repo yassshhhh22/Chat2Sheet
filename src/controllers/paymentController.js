@@ -546,7 +546,7 @@ export const verifyPaymentSuccess = async (req, res) => {
                 <svg class="razorpay-logo" viewBox="0 0 24 24">
                     <path d="M14.5 4l-7 7h4.5l-7 9L22 9h-7l7-5z"/>
                 </svg>
-                <span>Razorpay</span>
+                <span>Razorpay </span>
             </div>
         </div>
     </div>
@@ -554,7 +554,7 @@ export const verifyPaymentSuccess = async (req, res) => {
 </html>
       `);
     } else {
-      console.error(`❌ Payment verification failed: ${payment_id}`);
+      console.error(`❌ Payment verification failed:-${payment_id}`);
       res.status(400).send(`
         <html>
           <body style="font-family: Arial; text-align: center; padding: 50px;">
