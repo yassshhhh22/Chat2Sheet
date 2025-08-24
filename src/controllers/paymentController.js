@@ -481,8 +481,8 @@ function generatePaymentPageHTML({ student, studid, amountDue, order }) {
                 'Content-Type': 'application/json'
               },
               body: JSON.stringify({
-                studid: '${studid}',
-                amount: parseFloat(paymentAmount)
+                amount: paymentAmount,
+                studid: '${studid}' // Make sure this is properly passed
               })
             })
             .then(response => response.json())
