@@ -23,19 +23,18 @@ export async function addStudent(data) {
   try {
     console.log("📝 Adding student with data:", data);
 
-    // Generate student ID using proper function instead of manual generation
-    const studentId = await addStudentToSheet(data); // This returns the proper generated ID
+    // Add student to Students sheet - this already generates and returns the proper ID
+    const studentId = await addStudentToSheet(data);
 
     const studentData = {
       ...data,
-      stud_id: studentId, // Use the proper ID from addStudentToSheet
+      stud_id: studentId,
       created_at: new Date().toISOString(),
     };
 
     console.log("📝 Complete student data:", studentData);
 
-    // Add student to Students sheet
-    const studentResult = await addStudentToSheet(studentData);
+    // Remove the duplicate addStudentToSheet call - it's already done above
 
     // Add corresponding fee record if total_fees is provided
     if (data.total_fees) {
@@ -53,7 +52,7 @@ export async function addStudent(data) {
       await addFeesSummaryRecord(feeData);
     }
 
-    console.log("✅ Student added successfully:", studentResult);
+    console.log("✅ Student added successfully");
 
     return {
       success: true,
