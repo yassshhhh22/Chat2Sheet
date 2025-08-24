@@ -23,12 +23,12 @@ export async function addStudent(data) {
   try {
     console.log("📝 Adding student with data:", data);
 
-    // Generate student ID
-    const studentId = `STU${Date.now().toString().slice(-6)}`;
+    // Generate student ID using proper function instead of manual generation
+    const studentId = await addStudentToSheet(data); // This returns the proper generated ID
 
     const studentData = {
       ...data,
-      stud_id: studentId,
+      stud_id: studentId, // Use the proper ID from addStudentToSheet
       created_at: new Date().toISOString(),
     };
 
