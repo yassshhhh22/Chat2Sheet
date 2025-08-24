@@ -249,22 +249,29 @@ async function sendPaymentConfirmation(studid, amount_paid, transaction_id) {
         phoneNumber = '91' + phoneNumber;
       }
 
-      const successMessage = `✅ *Payment Received Successfully!*
+      // Get updated fee status
+      const feeStatus = await getStudentFeeStatus(studid);
+      const remainingBalance = parseFloat(feeStatus?.balance || 0);
 
-💰 *Amount:* ₹${amount_paid}
-👨‍🎓 *Student:* ${student.name}
-🆔 *Student ID:* ${studid}
-📚 *Class:* ${student.class}
-💳 *Transaction ID:* ${transaction_id}
+      const successMessage = `📄 *Payment Invoice*
 
-📄 Invoice has been generated and will be sent shortly.
+Dear Parent,
 
-Thank you for your payment!
+We have received ₹${amount_paid} on ${new Date().toISOString().split('T')[0]} for ${student.name} (${student.class}).
 
-*${process.env.SCHOOL_NAME || "School"} Management*`;
+*Payment Details:*
+• Amount: ₹${amount_paid}
+• Mode: Online
+• Transaction ID: ${transaction_id}
+• Remaining Balance: ₹${remainingBalance}
+
+Please find the detailed invoice attached.
+
+Thank you!
+- School Administration`;
 
       await sendWhatsAppMessage(phoneNumber, successMessage);
-      console.log(`✅ Payment confirmation sent`);
+      console.log(`✅ Payment confirmation sent to ${phoneNumber}`);
     } else {
       console.log(`⚠️ No parent contact found for: ${studid}`);
     }

@@ -405,3 +405,51 @@ Thank you!`;
 
   return await sendWhatsAppMessage(to, message);
 }
+
+export async function processWhatsAppMessage(req, res) {
+  try {
+    const body = req.body;
+
+    // Handle webhook verification
+    if (req.query["hub.mode"] === "subscribe" && req.query["hub.verify_token"] === process.env.WHATSAPP_VERIFY_TOKEN) {
+      console.log("✅ Webhook verified successfully!");
+      return res.status(200).send(req.query["hub.challenge"]);
+    }
+
+    // Process incoming messages
+    if (body.object && body.entry && body.entry[0].changes && body.entry[0].changes[0].value.messages) {
+      const messages = body.entry[0].changes[0].value.messages;
+      const contacts = body.entry[0].changes[0].value.contacts;
+
+      for (const message of messages) {
+        if (message.type === "text") {
+          const phoneNumber = message.from;
+          const messageText = message.text.body.trim();
+
+          console.log(`📱 Message from ${phoneNumber}: ${messageText}`);
+
+          try {
+            // Process the message with better error handling
+            await handleIncomingMessage(phoneNumber, messageText);
+          } catch (error) {
+            console.error(`❌ Error processing message from ${phoneNumber}:`, error.message);
+            
+            // Send user-friendly error message
+            const errorMessage = "❌ Sorry, I encountered an error processing your message. Please try again or contact support if the issue persists.";
+            
+            try {
+              await sendWhatsAppMessage(phoneNumber, errorMessage);
+            } catch (sendError) {
+              console.error("❌ Error sending error message:", sendError.message);
+            }
+          }
+        }
+      }
+    }
+
+    res.status(200).send("EVENT_RECEIVED");
+  } catch (error) {
+    console.error("❌ WhatsApp webhook error:", error.message);
+    res.status(500).send("Webhook processing failed");
+  }
+}

@@ -301,101 +301,83 @@ export const hasPendingConfirmation = (phoneNumber) => {
 };
 
 // Add this function to handle confirmation requests
-export const requestWriteConfirmation = async (
-  phoneNumber,
-  data,
-  operation
-) => {
-  const confirmationId = `confirm_${Date.now()}_${Math.random()
-    .toString(36)
-    .substr(2, 9)}`;
+export async function requestWriteConfirmation(phoneNumber, data, operation) {
+  try {
+    const confirmationId = `conf_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Store confirmation data
+    pendingConfirmations.set(phoneNumber, {
+      id: confirmationId,
+      data: data,
+      operation: operation,
+      timestamp: Date.now(),
+    });
 
-  pendingConfirmations.set(phoneNumber, {
-    id: confirmationId,
-    data: data,
-    operation: operation,
-    timestamp: Date.now(),
-  });
+    let confirmationMessage = "⚠️ *Confirmation Required*\n\n";
 
-  // Better formatting for WhatsApp
-  let dataPreview = "";
+    // Enhanced preview for installments
+    if (data.Installments && data.Installments.length > 0) {
+      confirmationMessage += "💳 *Payment Details:*\n\n";
+      
+      for (const inst of data.Installments) {
+        // Get student details for better confirmation
+        let studentDetails = null;
+        try {
+          if (inst.stud_id) {
+            studentDetails = await findStudentById(inst.stud_id);
+          } else if (inst.name) {
+            studentDetails = await findStudentByName(inst.name);
+          }
+        } catch (error) {
+          console.error("Error fetching student details for confirmation:", error);
+        }
 
-  if (data.Students && data.Students.length > 0) {
-    const student = data.Students[0];
-    dataPreview += `👨‍🎓 *New Student:*\n`;
-    dataPreview += `• Name: ${student.name}\n`;
-    dataPreview += `• Class: ${student.class}\n`;
-    dataPreview += `• Parent: ${student.parent_name}\n`;
-    dataPreview += `• Phone: ${student.phone_no}\n`;
-    if (student.email) dataPreview += `• Email: ${student.email}\n`;
-  }
+        if (studentDetails) {
+          const feeStatus = await getStudentFeeStatus(studentDetails.stud_id);
+          const currentBalance = parseFloat(feeStatus?.balance || 0);
+          const paymentAmount = parseFloat(inst.installment_amount || 0);
+          const newBalance = currentBalance - paymentAmount;
 
-  if (data.Fees && data.Fees.length > 0) {
-    const fee = data.Fees[0];
-    dataPreview += `\n💰 *Fee Details:*\n`;
-    dataPreview += `• Total Fees: ₹${fee.total_fees}\n`;
-  }
-
-  if (data.Installments && data.Installments.length > 0) {
-    const inst = data.Installments[0];
-
-    // Import the required functions to get student details
-    let studentDetails = null;
-
-    try {
-      // Try to get student details for better confirmation message
-      const { findStudentById, findStudentByName } = await import(
-        "../services/sheetsService.js"
-      );
-
-      if (inst.stud_id) {
-        studentDetails = await findStudentById(inst.stud_id);
-      } else if (inst.name) {
-        studentDetails = await findStudentByName(inst.name);
+          confirmationMessage += `👨‍🎓 *Student:* ${studentDetails.name}\n`;
+          confirmationMessage += `🆔 *Student ID:* ${studentDetails.stud_id}\n`;
+          confirmationMessage += `📚 *Class:* ${studentDetails.class}\n`;
+          confirmationMessage += `💰 *Amount:* ₹${inst.installment_amount}\n`;
+          confirmationMessage += `💳 *Mode:* ${inst.mode || 'cash'}\n`;
+          confirmationMessage += `📅 *Date:* ${inst.date || new Date().toISOString().split('T')[0]}\n`;
+          confirmationMessage += `💵 *Current Balance:* ₹${currentBalance}\n`;
+          confirmationMessage += `💵 *New Balance:* ₹${newBalance}\n`;
+          
+          if (inst.remarks) {
+            confirmationMessage += `📝 *Remarks:* ${inst.remarks}\n`;
+          }
+        } else {
+          // Fallback if student not found
+          confirmationMessage += `🆔 *Student ID:* ${inst.stud_id || "N/A"}\n`;
+          confirmationMessage += `👨‍🎓 *Student Name:* ${inst.name || "N/A"}\n`;
+          confirmationMessage += `💰 *Amount:* ₹${inst.installment_amount}\n`;
+          confirmationMessage += `💳 *Mode:* ${inst.mode || 'cash'}\n`;
+          confirmationMessage += `📅 *Date:* ${inst.date || new Date().toISOString().split('T')[0]}\n`;
+          
+          if (inst.remarks) {
+            confirmationMessage += `📝 *Remarks:* ${inst.remarks}\n`;
+          }
+        }
+        
+        confirmationMessage += `\n`;
       }
-    } catch (error) {
-      console.error("Error fetching student details for confirmation:", error);
     }
 
-    dataPreview += `\n💳 *Payment Details:*\n`;
-    dataPreview += `• Amount: ₹${inst.installment_amount}\n`;
+    confirmationMessage += `\nReply *YES* to confirm or *NO* to cancel.`;
 
-    if (studentDetails) {
-      const feeStatus = await getStudentFeeStatus(studentDetails.stud_id);
-      const currentBalance = parseFloat(feeStatus?.balance || 0);
-      const paymentAmount = parseFloat(inst.installment_amount || 0);
-      const newBalance = currentBalance - paymentAmount;
-
-      dataPreview += `• Student: ${studentDetails.name}\n`;
-      dataPreview += `• Class: ${studentDetails.class}\n`;
-      dataPreview += `• Current Balance: ₹${currentBalance}\n`;
-      dataPreview += `• New Balance: ₹${newBalance}\n`;
-
-      if (newBalance > 0) {
-        dataPreview += `• Payment Type: Partial Payment\n`;
-      } else {
-        dataPreview += `• Payment Type: Full Payment\n`;
-      }
-    } else {
-      dataPreview += `• Student ID: ${inst.stud_id || "N/A"}\n`;
-      dataPreview += `• Student Name: ${inst.name || "N/A"}\n`;
-    }
-
-    if (inst.mode) dataPreview += `• Payment Mode: ${inst.mode}\n`;
-    if (inst.date) dataPreview += `• Date: ${inst.date}\n`;
-    if (inst.remarks) dataPreview += `• Remarks: ${inst.remarks}\n`;
+    return {
+      requiresConfirmation: true,
+      confirmationMessage: confirmationMessage,
+      confirmationId: confirmationId,
+    };
+  } catch (error) {
+    console.error("Error in requestWriteConfirmation:", error);
+    throw error;
   }
-
-  const confirmationMessage =
-    `⚠️ *Confirmation Required*\n\n` +
-    `${dataPreview}\n` +
-    `Reply *YES* to confirm or *NO* to cancel.`;
-
-  return {
-    requiresConfirmation: true,
-    confirmationMessage: confirmationMessage,
-    confirmationId: confirmationId,
-  };
 };
 
 // Add function to handle webhook payments (no confirmation needed)
