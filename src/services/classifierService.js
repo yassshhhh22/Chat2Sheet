@@ -36,13 +36,27 @@ export async function classifyMessage(userMessage, phoneNumber) {
 Message: "${userMessage}"
 
 Return format (no markdown, no extra text):
-{"operation": "CREATE|READ|UPDATE|DELETE", "confidence": 0.85}
+{"operation": "CREATE|READ|UPDATE|DELETE|REMIND_ALL|REMIND_SPECIFIC", "confidence": 0.85, "student_id": "STU123"}
+
+Rules:
+- READ: Viewing/searching information, reports, payment history
+- CREATE: Adding new students, fees, or payments  
+- UPDATE: Modifying existing data
+- DELETE: Removing data
+- REMIND_ALL: Sending reminders to all students' parents
+- REMIND_SPECIFIC: Sending reminder to specific student's parent (include student_id)
 
 Examples:
 - "Show me details of Rahul" -> {"operation": "READ", "confidence": 0.9}
 - "Add new student" -> {"operation": "CREATE", "confidence": 0.9}
 - "Update phone number" -> {"operation": "UPDATE", "confidence": 0.85}
-- "Delete student STU123" -> {"operation": "DELETE", "confidence": 0.9}`;
+- "Delete student STU123" -> {"operation": "DELETE", "confidence": 0.9}
+- "remind all students" -> {"operation": "REMIND_ALL", "confidence": 0.9}
+- "send reminder to all" -> {"operation": "REMIND_ALL", "confidence": 0.9}
+- "fee reminder to all parents" -> {"operation": "REMIND_ALL", "confidence": 0.9}
+- "remind STU123" -> {"operation": "REMIND_SPECIFIC", "confidence": 0.9, "student_id": "STU123"}
+- "send reminder to STU456" -> {"operation": "REMIND_SPECIFIC", "confidence": 0.9, "student_id": "STU456"}
+- "fee reminder STU789" -> {"operation": "REMIND_SPECIFIC", "confidence": 0.9, "student_id": "STU789"}`;
 
   try {
     const response = await groq.chat.completions.create({
@@ -76,4 +90,4 @@ Examples:
     };
   }
 }
-  
+

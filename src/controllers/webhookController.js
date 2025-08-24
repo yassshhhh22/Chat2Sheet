@@ -8,6 +8,7 @@ import { parseReadRequest } from "../services/readAiService.js";
 import { classifyMessage } from "../services/classifierService.js";
 import { processAIData } from "../services/sheetService.js";
 import { processReadRequest } from "../controllers/readController.js";
+import { sendReminderToAll, sendReminderToSpecific } from "../controllers/reminderController.js";
 import { logAction } from "./sheetsController.js";
 import {
   sendFormattedResponse,
@@ -31,7 +32,9 @@ export const handleIncomingMessage = async (req, res) => {
     const text = msg.text?.body;
     rawMessage = text;
 
-    console.log("📩 Incoming message from:", from);
+    if (!text) return res.sendStatus(200);
+
+    console.log(`📩 Message from ${from}: "${text}"`);
 
     // Check if user has pending confirmation
     if (hasPendingConfirmation(from)) {
@@ -57,22 +60,35 @@ export const handleIncomingMessage = async (req, res) => {
       return res.status(200).json({ success: true });
     }
 
-    // Step 1: Classify message as READ or WRITE
-    const classification = await classifyMessage(text);
-    console.log("🎯 Message classified as:", classification.operation);
+    // Classify message as READ, write, or reminder
+    const classification = await classifyMessage(text, from);
+    console.log(`🎯 Classification: ${classification.operation}`, classification.student_id ? `(Student: ${classification.student_id})` : '');
 
     let result;
 
     if (classification.operation === "READ") {
       // READ flow remains unchanged
-      console.log("📖 Processing READ request...");
       const readRequest = await parseReadRequest(text);
       result = await processReadRequest(readRequest, from);
       await sendReadResponse(from, result);
+    } else if (classification.operation === "REMIND_ALL") {
+      // Handle remind all students
+      console.log("📢 Processing REMIND_ALL request");
+      const reminderResult = await sendReminderToAll();
+      await sendWhatsAppMessage(from, reminderResult);
+    } else if (classification.operation === "REMIND_SPECIFIC") {
+      // Handle remind specific student
+      const studentId = classification.student_id;
+      console.log(`📢 Processing REMIND_SPECIFIC request for: ${studentId}`);
+      
+      if (studentId) {
+        const reminderResult = await sendReminderToSpecific(studentId);
+        await sendWhatsAppMessage(from, reminderResult);
+      } else {
+        await sendWhatsAppMessage(from, "❌ Please specify a student ID for reminder (e.g., remind STU123)");
+      }
     } else {
-      // WRITE flow: Add validation before confirmation
-      console.log("✍️ Processing WRITE request...");
-
+      // WRITE flow: Add validation before confirmation (unchanged)
       // AI interprets the message → JSON
       parsedData = await parseMessageWithAI(text);
 
@@ -97,87 +113,45 @@ export const handleIncomingMessage = async (req, res) => {
         return res.status(200).json({ success: true });
       }
 
-      // REQUEST CONFIRMATION ONLY FOR VALID DATA
+      // Request confirmation ONLY for valid data
       const confirmationRequest = await requestWriteConfirmation(
         from,
         parsedData,
-        "CREATE"
+        classification.operation
       );
 
       await sendWhatsAppMessage(from, confirmationRequest.confirmationMessage);
+    }
 
-      // Log the confirmation request
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error("❌ Error in handleIncomingMessage:", error);
+
+    // Log error to action logs
+    try {
       await logAction(
-        "confirmation_requested",
-        parsedData.Students?.[0]?.name || "",
+        "webhook_error",
+        "",
         rawMessage,
         JSON.stringify(parsedData),
-        "pending",
-        "",
-        `whatsapp_${from}`
+        "error",
+        error.message,
+        "system"
       );
+    } catch (logError) {
+      console.error("❌ Failed to log error:", logError);
     }
 
-    res.status(200).send("EVENT_RECEIVED");
-  } catch (err) {
-    console.error("❌ Webhook error:", err);
-
-    try {
-      await sendWhatsAppMessage(
-        from,
-        "❌ *System Error*\n\nSorry, something went wrong. Please try again later."
-      );
-    } catch (sendError) {
-      console.error("❌ Failed to send error message:", sendError);
-    }
-
-    await logAction(
-      "webhook_message",
-      "",
-      rawMessage,
-      parsedData,
-      "error",
-      err.message,
-      "whatsapp_bot"
+    await sendWhatsAppMessage(
+      req.body.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from,
+      "❌ Sorry, I encountered an error processing your message. Please try again."
     );
 
-    res.sendStatus(500);
+    res.status(200).json({ success: true });
   }
 };
 
-// Helper function to process confirmed operations
-const processConfirmedOperation = async (confirmationResult) => {
-  try {
-    const { data, operation } = confirmationResult;
-
-    if (operation === "CREATE") {
-      const result = await sheetsService.createData(data);
-      return {
-        success: true,
-        message: "✅ Data has been successfully added to the sheet!",
-      };
-    } else if (operation === "UPDATE") {
-      const result = await sheetsService.updateData(data);
-      return {
-        success: true,
-        message: "✅ Data has been successfully updated in the sheet!",
-      };
-    }
-
-    return {
-      success: false,
-      message: "❌ Unknown operation type.",
-    };
-  } catch (error) {
-    logger.error("Error processing confirmed operation:", error);
-    return {
-      success: false,
-      message: "❌ Failed to process the operation. Please try again.",
-    };
-  }
-};
-
-// Add this validation function
+// Validation function (unchanged)
 function validateParsedData(parsedData) {
   // Validate installments
   if (parsedData.Installments && parsedData.Installments.length > 0) {
@@ -218,4 +192,3 @@ function validateParsedData(parsedData) {
 
   return { isValid: true };
 }
-  
