@@ -3,12 +3,16 @@ import {
   hasPendingConfirmation,
   handleConfirmationResponse,
   requestWriteConfirmation, // Add this import
+  processWebhookPayment,
 } from "../services/aiService.js";
 import { parseReadRequest } from "../services/readAiService.js";
 import { classifyMessage } from "../services/classifierService.js";
 import { processAIData } from "../services/sheetService.js";
 import { processReadRequest } from "../controllers/readController.js";
-import { sendReminderToAll, sendReminderToSpecific } from "../controllers/reminderController.js";
+import {
+  sendReminderToAll,
+  sendReminderToSpecific,
+} from "../controllers/reminderController.js";
 import { logAction } from "./sheetsController.js";
 import {
   sendFormattedResponse,
@@ -62,7 +66,10 @@ export const handleIncomingMessage = async (req, res) => {
 
     // Classify message as READ, write, or reminder
     const classification = await classifyMessage(text, from);
-    console.log(`🎯 Classification: ${classification.operation}`, classification.student_id ? `(Student: ${classification.student_id})` : '');
+    console.log(
+      `🎯 Classification: ${classification.operation}`,
+      classification.student_id ? `(Student: ${classification.student_id})` : ""
+    );
 
     let result;
 
@@ -80,12 +87,15 @@ export const handleIncomingMessage = async (req, res) => {
       // Handle remind specific student
       const studentId = classification.student_id;
       console.log(`📢 Processing REMIND_SPECIFIC request for: ${studentId}`);
-      
+
       if (studentId) {
         const reminderResult = await sendReminderToSpecific(studentId);
         await sendWhatsAppMessage(from, reminderResult);
       } else {
-        await sendWhatsAppMessage(from, "❌ Please specify a student ID for reminder (e.g., remind STU123)");
+        await sendWhatsAppMessage(
+          from,
+          "❌ Please specify a student ID for reminder (e.g., remind STU123)"
+        );
       }
     } else {
       // WRITE flow: Add validation before confirmation (unchanged)
@@ -148,6 +158,30 @@ export const handleIncomingMessage = async (req, res) => {
     );
 
     res.status(200).json({ success: true });
+  }
+};
+
+// Add this function to handle payment webhooks from Razorpay
+export const handlePaymentWebhook = async (paymentData) => {
+  try {
+    const aiCommand = `Add installment
+Student ID: ${paymentData.studid}
+Amount: ${paymentData.amount}
+Mode: Online
+Recorded by: Razorpay
+Remarks: Transaction ID: ${paymentData.transaction_id}`;
+
+    const result = await processWebhookPayment(aiCommand);
+
+    if (result.success) {
+      console.log("✅ Webhook payment processed successfully");
+      return { success: true, message: "Payment processed successfully" };
+    } else {
+      throw new Error("Payment processing failed");
+    }
+  } catch (error) {
+    console.error("❌ Webhook payment error:", error);
+    return { success: false, error: error.message };
   }
 };
 

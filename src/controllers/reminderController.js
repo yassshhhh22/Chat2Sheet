@@ -158,7 +158,7 @@ export async function sendReminderToSpecific(studentId) {
 // Create reminder message template
 function createReminderMessage(student) {
   const schoolName = process.env.SCHOOL_NAME || "School";
-  const paymentLink = `https://${process.env.RENDER_SERVICE_NAME}.onrender.com/payments/${student.stud_id}`;
+  const paymentLink = `https://75dc5d4ca51f.ngrok-free.app/payments/${student.stud_id}`;
 
   return `🔔 *Fee Reminder - ${schoolName}*
 
@@ -169,10 +169,21 @@ This is a gentle reminder regarding the fee payment for:
 👨‍🎓 *Student:* ${student.name}
 🆔 *ID:* ${student.stud_id}
 📚 *Class:* ${student.class}
+💰 *Outstanding Amount:* ₹${student.balance || "Contact school"}
 
-💳 *Payment Link:* ${paymentLink}
+💳 *Quick Payment Link:* 
+${paymentLink}
 
-Please ensure the fee payment is completed at the earliest.
+🚀 *Pay instantly via:*
+• Credit/Debit Card
+• UPI (Google Pay, PhonePe, Paytm)
+• Net Banking
+
+✅ *Benefits of Online Payment:*
+• Instant confirmation
+• Auto-generated invoice
+• Secure transactions
+• 24/7 availability
 
 For any queries, please contact the school office.
 

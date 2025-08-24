@@ -361,11 +361,21 @@ export const requestWriteConfirmation = async (
     dataPreview += `• Amount: ₹${inst.installment_amount}\n`;
 
     if (studentDetails) {
+      const feeStatus = await getStudentFeeStatus(studentDetails.stud_id);
+      const currentBalance = parseFloat(feeStatus?.balance || 0);
+      const paymentAmount = parseFloat(inst.installment_amount || 0);
+      const newBalance = currentBalance - paymentAmount;
+
       dataPreview += `• Student: ${studentDetails.name}\n`;
       dataPreview += `• Class: ${studentDetails.class}\n`;
-      dataPreview += `• Parent Phone: ${
-        studentDetails.parent_no || "Not available"
-      }\n`;
+      dataPreview += `• Current Balance: ₹${currentBalance}\n`;
+      dataPreview += `• New Balance: ₹${newBalance}\n`;
+
+      if (newBalance > 0) {
+        dataPreview += `• Payment Type: Partial Payment\n`;
+      } else {
+        dataPreview += `• Payment Type: Full Payment\n`;
+      }
     } else {
       dataPreview += `• Student ID: ${inst.stud_id || "N/A"}\n`;
       dataPreview += `• Student Name: ${inst.name || "N/A"}\n`;
@@ -387,3 +397,30 @@ export const requestWriteConfirmation = async (
     confirmationId: confirmationId,
   };
 };
+
+// Add function to handle webhook payments (no confirmation needed)
+export async function processWebhookPayment(aiCommand) {
+  try {
+    console.log("🔄 Processing webhook payment:", aiCommand);
+
+    // Parse the payment command
+    const parsedData = await parseMessageWithAI(aiCommand);
+
+    if (
+      !parsedData ||
+      !parsedData.Installments ||
+      parsedData.Installments.length === 0
+    ) {
+      throw new Error("Failed to parse payment data");
+    }
+
+    // Process immediately without confirmation (webhook is trusted)
+    const { processAIData } = await import("./sheetService.js");
+    const result = await processAIData(parsedData);
+
+    return result;
+  } catch (error) {
+    console.error("❌ Webhook payment processing error:", error);
+    throw error;
+  }
+}

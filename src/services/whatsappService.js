@@ -371,4 +371,37 @@ export async function sendInvoiceDocument(to, filePath, caption) {
     throw error;
   }
 }
-       
+
+export async function sendPaymentLink(to, studentData) {
+  const paymentLink = `https://75dc5d4ca51f.ngrok-free.app/payments/${studentData.stud_id}`;
+
+  const message = `🔔 *Fee Payment - ${process.env.SCHOOL_NAME || "School"}*
+
+Dear Parent,
+
+👨‍🎓 *Student:* ${studentData.name}
+🆔 *ID:* ${studentData.stud_id}
+📚 *Class:* ${studentData.class}
+💰 *Total Outstanding:* ₹${studentData.balance || "0"}
+
+💳 *Pay Any Amount Online:*
+${paymentLink}
+
+✨ *Flexible Payment Options:*
+• Pay full amount or partial
+• Choose your payment amount
+• Instant confirmation & receipt
+• Secure online transactions
+
+🚀 *Supported Payment Methods:*
+• Credit/Debit Cards
+• UPI (Google Pay, PhonePe, Paytm)
+• Net Banking
+• Wallets
+
+For any queries, please contact the school office.
+
+Thank you!`;
+
+  return await sendWhatsAppMessage(to, message);
+}

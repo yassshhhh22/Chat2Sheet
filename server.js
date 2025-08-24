@@ -6,6 +6,7 @@ import cors from "cors";
 // Routes
 import webhookRoutes from "./src/routes/webhook.js";
 import KeepAliveService from "./src/services/keepAliveService.js";
+import paymentRoutes from "./src/routes/paymentRoutes.js"; // Fixed path
 
 dotenv.config();
 
@@ -26,6 +27,7 @@ app.get("/health", (req, res) => {
 
 // Routes
 app.use("/webhook", webhookRoutes);
+app.use("/", paymentRoutes);
 app.get("/", (req, res) => {
   res.send("Welcome to the Chat2Sheet Webhook Server!");
 });
@@ -36,7 +38,6 @@ app.listen(PORT, () => {
 
   // Start keep-alive service in production
   if (process.env.RENDER_SERVICE_NAME) {
-    // Render-specific env var
     const appUrl = `https://${process.env.RENDER_SERVICE_NAME}.onrender.com`;
     const keepAlive = new KeepAliveService(appUrl);
     keepAlive.start();
