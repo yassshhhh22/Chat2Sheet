@@ -158,7 +158,7 @@ export async function sendReminderToSpecific(studentId) {
 // Create reminder message template
 function createReminderMessage(student) {
   const schoolName = process.env.SCHOOL_NAME || "School";
-  const paymentLink = `https://75dc5d4ca51f.ngrok-free.app/payments/${student.stud_id}`;
+  const paymentLink = `https://${process.env.RENDER_SERVICE_NAME}/payments/${student.stud_id}`;
 
   return `🔔 *Fee Reminder - ${schoolName}*
 
