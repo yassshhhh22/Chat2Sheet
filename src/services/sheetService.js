@@ -117,14 +117,17 @@ export async function processAIData(parsedData, rawMessage = "", isConfirmed = f
 
     // Generate success message based on what was processed
     if (results.students.length > 0 && results.students.every(s => s.success)) {
-      let successMessage = "✅ *Student registered successfully!*\n\n";
-      successMessage += "👨‍🎓 *Student Details:*\n";
+      let successMessage = "✅ *Data processed successfully!*\n\n";
+      successMessage += "👨‍🎓 *Students Added:*\n";
       
       results.students.forEach(student => {
-        successMessage += `• ${student.data.name} (${student.stud_id}) - Class ${student.data.class}\n`;
+        // Access the correct stud_id from the addStudent response
+        const studentId = student.stud_id; // This comes directly from addStudent return
+        const studentName = student.data.name;
+        successMessage += `• ${studentName} (${studentId})\n`;
       });
       
-      successMessage += "\n📊 Data has been updated in the Google Sheets! 📋";
+      successMessage += "\nData has been updated in the Google Sheets! 📊";
       results.message = successMessage;
     }
 
