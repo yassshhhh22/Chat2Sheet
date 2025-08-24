@@ -18,7 +18,7 @@ const razorpay = new Razorpay({
 export const renderPaymentPage = async (req, res) => {
   try {
     const { studid } = req.params;
-    console.log(`💳 Payment page requested for student: ${studid}`);
+    console.log(`💳 Payment page requested for: ${studid}`);
 
     // Fetch student details
     const student = await findStudentById(studid);
@@ -66,7 +66,7 @@ export const renderPaymentPage = async (req, res) => {
       },
     });
 
-    console.log(`✅ Razorpay order created: ${order.id} for ₹${amountDue}`);
+    console.log(`✅ Order created: ${order.id} for ₹${amountDue}`);
 
     // Render payment page with enhanced UI
     const paymentPageHTML = generatePaymentPageHTML({
@@ -78,7 +78,7 @@ export const renderPaymentPage = async (req, res) => {
 
     res.send(paymentPageHTML);
   } catch (error) {
-    console.error("❌ Payment page error:", error);
+    console.error("❌ Payment page error:", error.message);
     res.status(500).send(`
       <html>
         <body style="font-family: Arial; text-align: center; padding: 50px;">
@@ -95,7 +95,7 @@ export const renderPaymentPage = async (req, res) => {
 export const verifyPaymentSuccess = async (req, res) => {
   try {
     const { payment_id, order_id, signature, amount } = req.query;
-    console.log(`🔍 Verifying payment: ${payment_id} for amount: ₹${amount}`);
+    console.log(`🔍 Verifying payment: ${payment_id} (₹${amount})`);
 
     // Verify signature
     const hmac = crypto.createHmac("sha256", process.env.RAZORPAY_KEY_SECRET);
@@ -103,7 +103,7 @@ export const verifyPaymentSuccess = async (req, res) => {
     const generated_signature = hmac.digest("hex");
 
     if (generated_signature === signature) {
-      console.log(`✅ Payment verification successful: ${payment_id}`);
+      console.log(`✅ Payment verified: ${payment_id}`);
 
       // Get order details to extract student info
       try {
@@ -114,9 +114,9 @@ export const verifyPaymentSuccess = async (req, res) => {
         // Process payment through AI system (bypass confirmation)
         await processPaymentThroughAI(studid, amount_paid, payment_id);
         
-        console.log(`✅ Payment processed and invoice generated for student: ${studid}`);
+        console.log(`✅ Payment processed for student: ${studid}`);
       } catch (processingError) {
-        console.error("❌ Error processing payment:", processingError);
+        console.error("❌ Payment processing error:", processingError.message);
         // Still show success to user, but log the error
       }
 
@@ -158,7 +158,7 @@ export const verifyPaymentSuccess = async (req, res) => {
       `);
     }
   } catch (error) {
-    console.error("❌ Payment verification error:", error);
+    console.error("❌ Payment verification error:", error.message);
     res.status(500).send("Payment verification failed");
   }
 };
@@ -180,7 +180,7 @@ export const handleRazorpayWebhook = async (req, res) => {
     }
 
     const event = req.body;
-    console.log(`📨 Webhook received: ${event.event}`);
+    console.log(`📨 Webhook: ${event.event}`);
 
     if (event.event === "payment.captured") {
       await processPaymentSuccess(event.payload.payment.entity);
@@ -188,7 +188,7 @@ export const handleRazorpayWebhook = async (req, res) => {
 
     res.status(200).send("OK");
   } catch (error) {
-    console.error("❌ Webhook error:", error);
+    console.error("❌ Webhook error:", error.message);
     res.status(500).send("Webhook processing failed");
   }
 };
@@ -196,7 +196,7 @@ export const handleRazorpayWebhook = async (req, res) => {
 // Process successful payment (webhook handler)
 async function processPaymentSuccess(payment) {
   try {
-    console.log("🎉 Processing successful payment:", payment.id);
+    console.log("🎉 Processing webhook payment:", payment.id);
 
     // Get order details to extract student info
     const order = await razorpay.orders.fetch(payment.order_id);
@@ -210,8 +210,6 @@ Amount: ${amount_paid}
 Mode: Online
 Recorded by: Razorpay
 Remarks: Transaction ID: ${payment.id}`;
-
-    console.log("🤖 Sending to AI for processing:", aiCommand);
 
     // Parse with AI (no confirmation needed for webhook)
     const parsedData = await parseMessageWithAI(aiCommand);
@@ -228,14 +226,14 @@ Remarks: Transaction ID: ${payment.id}`;
     const result = await processAIData(parsedData);
 
     if (result.success) {
-      console.log("✅ Payment processed successfully via AI");
+      console.log("✅ Webhook payment processed successfully");
       await sendPaymentConfirmation(studid, amount_paid, payment.id);
     } else {
-      console.error("❌ AI processing failed:", result);
+      console.error("❌ AI processing failed");
       // Log the failure but don't throw to avoid webhook retry
     }
   } catch (error) {
-    console.error("❌ Error processing payment:", error);
+    console.error("❌ Webhook processing error:", error.message);
     // Don't throw error to avoid webhook retry loops
   }
 }
@@ -260,12 +258,12 @@ Thank you for your payment!
 *${process.env.SCHOOL_NAME || "School"} Management*`;
 
       await sendWhatsAppMessage(student.parent_no, successMessage);
-      console.log(`✅ Payment confirmation sent to: ${student.parent_no}`);
+      console.log(`✅ Payment confirmation sent`);
     } else {
-      console.log(`⚠️ No parent contact found for student: ${studid}`);
+      console.log(`⚠️ No parent contact found for: ${studid}`);
     }
   } catch (error) {
-    console.error("❌ Error sending payment confirmation:", error);
+    console.error("❌ Payment confirmation error:", error.message);
   }
 }
 
@@ -657,7 +655,7 @@ export const createPaymentOrder = async (req, res) => {
       razorpay_key: process.env.RAZORPAY_KEY_ID,
     });
   } catch (error) {
-    console.error("Payment order creation error:", error);
+    console.error("❌ Order creation error:", error.message);
     res.status(500).json({ error: "Failed to create payment order" });
   }
 };
@@ -710,7 +708,7 @@ export const createCustomPaymentOrder = async (req, res) => {
       razorpay_key: process.env.RAZORPAY_KEY_ID,
     });
   } catch (error) {
-    console.error("Payment order creation error:", error);
+    console.error("❌ Order creation error:", error.message);
     res.status(500).json({ error: "Failed to create payment order" });
   }
 };
@@ -756,7 +754,7 @@ export const verifyPayment = async (req, res) => {
       throw new Error("Failed to record payment in sheets");
     }
   } catch (error) {
-    console.error("Payment verification error:", error);
+    console.error("❌ Payment verification error:", error.message);
     res.status(500).json({ error: "Payment verification failed" });
   }
 };
@@ -764,7 +762,7 @@ export const verifyPayment = async (req, res) => {
 // Add this new function to process payment through AI system
 async function processPaymentThroughAI(studid, amount_paid, transaction_id) {
   try {
-    console.log(`🤖 Processing payment through AI for student: ${studid}`);
+    console.log(`🤖 Processing AI payment for: ${studid} (₹${amount_paid})`);
     
     // Create AI command similar to your existing format
     const aiCommand = `Add installment
@@ -774,8 +772,6 @@ Mode: Online
 Recorded by: Razorpay: ${transaction_id}
 Date: ${new Date().toISOString().split('T')[0]}`;
 
-    console.log("📝 AI Command:", aiCommand);
-
     // Import the processWebhookPayment function that bypasses confirmation
     const { processWebhookPayment } = await import("../services/aiService.js");
     
@@ -783,18 +779,18 @@ Date: ${new Date().toISOString().split('T')[0]}`;
     const result = await processWebhookPayment(aiCommand);
     
     if (result.success) {
-      console.log("✅ Payment processed successfully through AI");
+      console.log("✅ AI payment processing completed");
       
       // Send payment confirmation to parent
       await sendPaymentConfirmation(studid, amount_paid, transaction_id);
     } else {
-      console.error("❌ AI processing failed:", result);
+      console.error("❌ AI processing failed");
       throw new Error("Payment processing failed");
     }
     
     return result;
   } catch (error) {
-    console.error("❌ Error in processPaymentThroughAI:", error);
+    console.error("❌ AI payment processing error:", error.message);
     throw error;
   }
 }
