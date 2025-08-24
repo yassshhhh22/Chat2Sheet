@@ -98,7 +98,7 @@ export const handleIncomingMessage = async (req, res) => {
         );
       }
     } else {
-      // WRITE flow: Add validation before confirmation (unchanged)
+      // WRITE flow: Add validation before confirmation
       // AI interprets the message → JSON
       parsedData = await parseMessageWithAI(text);
 
@@ -123,11 +123,12 @@ export const handleIncomingMessage = async (req, res) => {
         return res.status(200).json({ success: true });
       }
 
-      // Request confirmation ONLY for valid data
+      // Request confirmation
+      console.log("🔄 Requesting confirmation for data:", parsedData);
       const confirmationRequest = await requestWriteConfirmation(
         from,
         parsedData,
-        classification.operation
+        "CREATE"
       );
 
       await sendWhatsAppMessage(from, confirmationRequest.confirmationMessage);

@@ -21,65 +21,53 @@ import { sendInvoicePDF } from "../services/whatsappService.js";
 
 export async function addStudent(data) {
   try {
-    console.log("🔍 addStudent received data:", data);
+    console.log("📝 Adding student with data:", data);
 
-    // Remove the duplicate name check entirely
-    // Multiple students can have the same name
+    // Generate student ID
+    const studentId = `STU${Date.now().toString().slice(-6)}`;
 
-    // Add student to students sheet
-    const studId = await addStudentToSheet(data);
-
-    // Add initial fees summary record with proper data
-    const feesData = {
-      stud_id: studId,
-      name: data.name,
-      class: data.class,
-      total_fees: data.total_fees || "0",
-      total_paid: "0",
-      balance: data.total_fees || "0",
-      status: "unpaid",
+    const studentData = {
+      ...data,
+      stud_id: studentId,
+      created_at: new Date().toISOString(),
     };
 
-    await addFeesSummaryRecord(
-      studId,
-      data.name,
-      data.class,
-      data.total_fees || 0
-    );
+    console.log("📝 Complete student data:", studentData);
 
-    // Log the action
-    await logAction(
-      "add_student",
-      studId,
-      `Student ${data.name} created`,
-      data,
-      "success",
-      "",
-      "system"
-    );
+    // Add student to Students sheet
+    const studentResult = await addStudentToSheet(studentData);
+
+    // Add corresponding fee record if total_fees is provided
+    if (data.total_fees) {
+      const feeData = {
+        stud_id: studentId,
+        name: data.name,
+        class: data.class,
+        total_fees: data.total_fees,
+        total_paid: "0",
+        balance: data.total_fees,
+        status: "unpaid",
+      };
+
+      console.log("💰 Adding fee record:", feeData);
+      await addFeesSummaryRecord(feeData);
+    }
+
+    console.log("✅ Student added successfully:", studentResult);
 
     return {
       success: true,
-      stud_id: studId,
-      message: `Student ${data.name} added successfully`,
-      data: {
-        stud_id: studId,
-        name: data.name,
-        class: data.class,
-      },
+      stud_id: studentId,
+      data: studentData,
+      message: `Student ${data.name} added successfully with ID ${studentId}`,
     };
   } catch (error) {
-    // Log the error
-    await logAction(
-      "add_student",
-      "",
-      `Failed to create student ${data.name}`,
-      data,
-      "error",
-      error.message,
-      "system"
-    );
-    throw error;
+    console.error("❌ Error adding student:", error);
+    return {
+      success: false,
+      error: error.message,
+      data: data,
+    };
   }
 }
 

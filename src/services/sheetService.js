@@ -50,6 +50,28 @@ export async function processAIData(parsedData, rawMessage = "", isConfirmed = f
       message: "Data processed successfully",
     };
 
+    // Process students first if any
+    if (parsedData.Students && parsedData.Students.length > 0) {
+      console.log("👨‍🎓 Processing Students data...");
+
+      for (const studentData of parsedData.Students) {
+        try {
+          console.log("Adding student:", studentData);
+          const studentResult = await addStudent(studentData);
+          results.students.push(studentResult);
+          console.log("✅ Student added:", studentResult);
+        } catch (error) {
+          console.error("❌ Error adding student:", error);
+          results.students.push({
+            success: false,
+            error: error.message,
+            data: studentData,
+          });
+          results.success = false;
+        }
+      }
+    }
+
     // Process installments with better success messaging
     if (parsedData.Installments && parsedData.Installments.length > 0) {
       console.log("💰 Processing Installments data...");
@@ -93,11 +115,24 @@ export async function processAIData(parsedData, rawMessage = "", isConfirmed = f
       }
     }
 
-    // Generate better success message
+    // Generate success message based on what was processed
+    if (results.students.length > 0 && results.students.every(s => s.success)) {
+      let successMessage = "✅ *Student registered successfully!*\n\n";
+      successMessage += "👨‍🎓 *Student Details:*\n";
+      
+      results.students.forEach(student => {
+        successMessage += `• ${student.data.name} (${student.stud_id}) - Class ${student.data.class}\n`;
+      });
+      
+      successMessage += "\n📊 Data has been updated in the Google Sheets! 📋";
+      results.message = successMessage;
+    }
+
+    // Generate better success message for installments
     const successfulInstallments = results.installments.filter(i => i.success);
     
     if (successfulInstallments.length > 0) {
-      let successMessage = "✅ *Data processed successfully!*\n\n";
+      let successMessage = "✅ *Payment processed successfully!*\n\n";
       successMessage += "💰 *Installments Added:*\n";
       
       successfulInstallments.forEach(inst => {
@@ -117,4 +152,4 @@ export async function processAIData(parsedData, rawMessage = "", isConfirmed = f
     console.error("❌ Error in processAIData:", error);
     throw error;
   }
-};
+}

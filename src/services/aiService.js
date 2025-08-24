@@ -321,7 +321,31 @@ export async function requestWriteConfirmation(phoneNumber, data, operation) {
 
     let confirmationMessage = "⚠️ *Confirmation Required*\n\n";
 
-    // Enhanced preview for installments
+    // Handle student creation
+    if (data.Students && data.Students.length > 0) {
+      confirmationMessage += "👨‍🎓 *Student Registration Details:*\n\n";
+      
+      for (const student of data.Students) {
+        confirmationMessage += `👨‍🎓 *Student:* ${student.name}\n`;
+        confirmationMessage += `📚 *Class:* ${student.class}\n`;
+        confirmationMessage += `👤 *Parent Name:* ${student.parent_name}\n`;
+        confirmationMessage += `📞 *Parent Phone:* ${student.parent_no}\n`;
+        confirmationMessage += `📱 *Student Phone:* ${student.phone_no}\n`;
+        confirmationMessage += `📧 *Email:* ${student.email}\n`;
+        
+        // Add fee details if present
+        if (data.Fees && data.Fees.length > 0) {
+          const studentFee = data.Fees.find(f => f.name === student.name);
+          if (studentFee) {
+            confirmationMessage += `💰 *Total Fees:* ₹${studentFee.total_fees}\n`;
+            confirmationMessage += `💵 *Initial Balance:* ₹${studentFee.balance}\n`;
+          }
+        }
+        confirmationMessage += "\n";
+      }
+    }
+
+    // Enhanced preview for installments (existing code)
     if (data.Installments && data.Installments.length > 0) {
       confirmationMessage += "💳 *Payment Details:*\n\n";
       
@@ -368,20 +392,19 @@ export async function requestWriteConfirmation(phoneNumber, data, operation) {
             confirmationMessage += `📝 *Remarks:* ${inst.remarks}\n`;
           }
         }
-        
-        confirmationMessage += `\n`;
+        confirmationMessage += "\n";
       }
     }
 
-    confirmationMessage += `\nReply *YES* to confirm or *NO* to cancel.`;
+    confirmationMessage += "\nReply *YES* to confirm or *NO* to cancel.";
 
     return {
+      confirmationId,
+      confirmationMessage,
       requiresConfirmation: true,
-      confirmationMessage: confirmationMessage,
-      confirmationId: confirmationId,
     };
   } catch (error) {
-    console.error("Error in requestWriteConfirmation:", error);
+    console.error("❌ Error requesting confirmation:", error);
     throw error;
   }
 };
