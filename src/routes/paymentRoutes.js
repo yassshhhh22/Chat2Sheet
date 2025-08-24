@@ -4,6 +4,14 @@ import {
   verifyPaymentSuccess,
   handleRazorpayWebhook,
 } from "../controllers/paymentController.js";
+import { findStudentById, getStudentFeeStatus } from "../services/sheetsService.js";
+import Razorpay from "razorpay";
+
+// Initialize Razorpay instance
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET,
+});
 
 const router = express.Router();
 

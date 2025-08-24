@@ -500,8 +500,14 @@ function generatePaymentPageHTML({ student, studid, amountDue, order }) {
                 name: '${process.env.SCHOOL_NAME || "School"}',
                 description: 'Fee Payment for ${student.name}',
                 handler: function(response) {
-                  // Send payment details including custom amount
-                  window.location.href = '/payments/success?payment_id=' + response.razorpay_payment_id + '&order_id=' + response.razorpay_order_id + '&signature=' + response.razorpay_signature + '&amount=' + paymentAmount;
+                  // Fix: Ensure all required parameters are passed
+                  const params = new URLSearchParams({
+                    payment_id: response.razorpay_payment_id,
+                    order_id: response.razorpay_order_id,
+                    signature: response.razorpay_signature,
+                    amount: paymentAmount
+                  });
+                  window.location.href = '/payments/success?' + params.toString();
                 },
                 prefill: {
                   name: '${student.parent_name || ""}',
