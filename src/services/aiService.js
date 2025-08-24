@@ -1,5 +1,11 @@
 import Groq from "groq-sdk";
 import "dotenv/config";
+import {
+  findStudentById,
+  findStudentByName,
+  getStudentFeeStatus,
+} from "./sheetsService.js";
+import { processAIData } from "./sheetService.js";
 
 const apiKey = process.env.GROQ_API_KEY;
 
@@ -397,7 +403,6 @@ export async function processWebhookPayment(aiCommand) {
     }
 
     // Process immediately without confirmation (webhook is trusted)
-    const { processAIData } = await import("./sheetService.js");
     const result = await processAIData(parsedData);
 
     return result;

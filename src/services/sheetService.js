@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import { addStudent, addInstallment } from "../controllers/sheetsController.js";
 
 const auth = new google.auth.GoogleAuth({
   keyFile:
