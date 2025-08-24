@@ -127,32 +127,440 @@ export const verifyPaymentSuccess = async (req, res) => {
       }
 
       res.send(`
-        <html>
-          <head>
-            <title>Payment Successful</title>
-            <style>
-              body { font-family: Arial; text-align: center; padding: 50px; background: #f8f9fa; }
-              .success-container { background: white; padding: 40px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 500px; margin: 0 auto; }
-              .success-icon { font-size: 60px; color: #28a745; margin-bottom: 20px; }
-              .amount { font-size: 24px; color: #007cba; font-weight: bold; margin: 20px 0; }
-              .transaction-id { background: #f8f9fa; padding: 10px; border-radius: 5px; font-family: monospace; margin: 20px 0; }
-            </style>
-          </head>
-          <body>
-            <div class="success-container">
-              <div class="success-icon">✅</div>
-              <h2>Payment Successful!</h2>
-              <div class="amount">Amount Paid: ₹${amount}</div>
-              <div class="transaction-id">Transaction ID: ${payment_id}</div>
-              <p>Your payment has been processed successfully.</p>
-              <p><strong>📄 Invoice will be sent to you shortly via WhatsApp.</strong></p>
-              <p style="margin-top: 30px; color: #6c757d;">You can now close this window.</p>
+        <!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Successful - Razorpay</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            line-height: 1.6;
+            color: #334155;
+        }
+
+        .success-container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 
+                0 0 0 1px rgba(0, 0, 0, 0.03),
+                0 1px 3px rgba(0, 0, 0, 0.1),
+                0 4px 12px rgba(0, 0, 0, 0.08),
+                0 16px 32px rgba(0, 0, 0, 0.05);
+            max-width: 480px;
+            width: 100%;
+            padding: 48px 40px 40px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .success-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+        }
+
+        .success-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 24px;
+            animation: successPulse 0.8s ease-out;
+            box-shadow: 0 8px 32px rgba(16, 185, 129, 0.3);
+        }
+
+        .success-icon svg {
+            width: 40px;
+            height: 40px;
+            fill: white;
+            animation: checkmarkDraw 1s ease-out 0.3s both;
+        }
+
+        @keyframes successPulse {
+            0% {
+                transform: scale(0.8);
+                opacity: 0;
+            }
+            50% {
+                transform: scale(1.1);
+            }
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        @keyframes checkmarkDraw {
+            0% {
+                transform: scale(0) rotate(45deg);
+                opacity: 0;
+            }
+            100% {
+                transform: scale(1) rotate(0deg);
+                opacity: 1;
+            }
+        }
+
+        .success-title {
+            font-size: 26px;
+            font-weight: 700;
+            color: #1e293b;
+            margin-bottom: 8px;
+            letter-spacing: -0.02em;
+        }
+
+        .success-subtitle {
+            font-size: 16px;
+            color: #64748b;
+            margin-bottom: 36px;
+            font-weight: 400;
+        }
+
+        .payment-details {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-radius: 12px;
+            padding: 28px 24px;
+            margin-bottom: 28px;
+            border: 1px solid #e2e8f0;
+            position: relative;
+        }
+
+        .payment-details::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 20px;
+            right: 20px;
+            height: 1px;
+            background: linear-gradient(90deg, transparent 0%, #10b981 50%, transparent 100%);
+        }
+
+        .amount-section {
+            margin-bottom: 24px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .amount-header {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+
+        .amount-icon {
+            width: 18px;
+            height: 18px;
+            fill: #10b981;
+        }
+
+        .amount-label {
+            font-size: 14px;
+            font-weight: 600;
+            color: #475569;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+        }
+
+        .amount {
+            font-size: 32px;
+            font-weight: 800;
+            color: #1e293b;
+            letter-spacing: -0.02em;
+        }
+
+        .transaction-details {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            padding: 12px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .transaction-details:last-child {
+            margin-bottom: 0;
+            border-bottom: none;
+        }
+
+        .transaction-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+            color: #64748b;
+            font-weight: 500;
+        }
+
+        .transaction-label-icon {
+            width: 16px;
+            height: 16px;
+            fill: #94a3b8;
+        }
+
+        .transaction-value {
+            font-size: 14px;
+            color: #1e293b;
+            font-weight: 600;
+            background: white;
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+        }
+
+        .invoice-notice {
+            background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+            border: 1px solid #a7f3d0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 28px;
+            position: relative;
+        }
+
+        .invoice-notice::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #10b981 0%, #059669 100%);
+            border-radius: 12px 12px 0 0;
+        }
+
+        .invoice-notice-content {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .invoice-notice-icon {
+            width: 22px;
+            height: 22px;
+            fill: #059669;
+            flex-shrink: 0;
+        }
+
+        .invoice-notice-text {
+            font-size: 15px;
+            color: #065f46;
+            font-weight: 600;
+        }
+
+        .security-badge {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 12px 16px;
+            margin-bottom: 24px;
+        }
+
+        .security-icon {
+            width: 18px;
+            height: 18px;
+            fill: #059669;
+        }
+
+        .security-text {
+            font-size: 13px;
+            color: #475569;
+            font-weight: 500;
+        }
+
+        .close-notice {
+            font-size: 14px;
+            color: #64748b;
+            font-weight: 400;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .close-icon {
+            width: 16px;
+            height: 16px;
+            fill: #94a3b8;
+        }
+
+        .footer {
+            margin-top: 36px;
+            padding-top: 24px;
+            border-top: 1px solid #f1f5f9;
+        }
+
+        .footer-text {
+            font-size: 12px;
+            color: #94a3b8;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            font-weight: 500;
+        }
+
+        .razorpay-logo {
+            width: 16px;
+            height: 16px;
+            fill: #0C4BFB;
+        }
+
+        /* Hover Effects */
+        .transaction-value:hover {
+            background: #f8fafc;
+            transform: translateY(-1px);
+            transition: all 0.2s ease;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 480px) {
+            .success-container {
+                padding: 36px 28px 32px;
+                margin: 16px;
+            }
+
+            .success-title {
+                font-size: 22px;
+            }
+
+            .amount {
+                font-size: 26px;
+            }
+
+            .transaction-details {
+                flex-direction: column;
+                gap: 8px;
+                align-items: flex-start;
+                text-align: left;
+            }
+
+            .transaction-value {
+                font-size: 13px;
+                width: 100%;
+                text-align: center;
+            }
+
+            .invoice-notice-content {
+                flex-direction: column;
+                gap: 12px;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="success-container">
+        <div class="success-icon">
+            <svg viewBox="0 0 24 24">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z"/>
+            </svg>
+        </div>
+        
+        <h1 class="success-title">Payment Successful!</h1>
+        <p class="success-subtitle">Your transaction has been completed successfully</p>
+        
+        <div class="payment-details">
+            <div class="amount-section">
+                <div class="amount-header">
+                    <svg class="amount-icon" viewBox="0 0 24 24">
+                        <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H5C3.9 1 3 1.9 3 3V17C3 18.1 3.9 19 5 19H11V21C11 21.6 11.4 22 12 22S13 21.6 13 21V19H19C20.1 19 21 18.1 21 17V9Z"/>
+                    </svg>
+                    <span class="amount-label">Amount Paid</span>
+                </div>
+                <div class="amount">₹${amount}</div>
             </div>
-          </body>
-        </html>
+            
+            <div class="transaction-details">
+                <div class="transaction-label">
+                    <svg class="transaction-label-icon" viewBox="0 0 24 24">
+                        <path d="M9,4V6H15V4H17V6H20A2,2 0 0,1 22,8V18A2,2 0 0,1 20,20H4A2,2 0 0,1 2,18V8A2,2 0 0,1 4,6H7V4H9M4,8V18H20V8H4Z"/>
+                    </svg>
+                    <span>Transaction ID</span>
+                </div>
+                <span class="transaction-value">${payment_id}</span>
+            </div>
+            
+            <div class="transaction-details">
+                <div class="transaction-label">
+                    <svg class="transaction-label-icon" viewBox="0 0 24 24">
+                        <path d="M20,8H4V6C4,4.89 4.89,4 6,4H18A2,2 0 0,1 20,6V8M4,10H20V18A2,2 0 0,1 18,20H6C4.89,20 4,19.11 4,18V10Z"/>
+                    </svg>
+                    <span>Payment Method</span>
+                </div>
+                <span class="transaction-value">Razorpay</span>
+            </div>
+            
+
+        </div>
+        
+        <div class="security-badge">
+            <svg class="security-icon" viewBox="0 0 24 24">
+                <path d="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M10,17L6,13L7.41,11.59L10,14.17L16.59,7.58L18,9L10,17Z"/>
+            </svg>
+            <span class="security-text">Secured by 256-bit SSL encryption</span>
+        </div>
+        
+        <div class="invoice-notice">
+            <div class="invoice-notice-content">
+                <svg class="invoice-notice-icon" viewBox="0 0 24 24">
+                    <path d="M22,3H2C0.91,3.04 0.04,3.91 0,5V19C0.04,20.09 0.91,20.96 2,21H22C23.09,20.96 23.96,20.09 24,19V5C23.96,3.91 23.09,3.04 22,3M22,19H2V5H22V19M14,17V15.5C14,14.11 15.11,13 16.5,13V11A2.5,2.5 0 0,0 14,8.5H10A2.5,2.5 0 0,0 7.5,11V13C8.89,13 10,14.11 10,15.5V17H14Z"/>
+                </svg>
+                <span class="invoice-notice-text">Invoice will be sent via WhatsApp shortly</span>
+            </div>
+        </div>
+        
+        <div class="close-notice">
+            <svg class="close-icon" viewBox="0 0 24 24">
+                <path d="M13,14H11V10H13M13,18H11V16H13M1,21H23L12,2L1,21Z"/>
+            </svg>
+            <span>You can safely close this window</span>
+        </div>
+        
+        <div class="footer">
+            <div class="footer-text">
+                <span>Powered by</span>
+                <svg class="razorpay-logo" viewBox="0 0 24 24">
+                    <path d="M14.5 4l-7 7h4.5l-7 9L22 9h-7l7-5z"/>
+                </svg>
+                <span>Razorpay </span>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
       `);
     } else {
-      console.error(`❌ Payment verification failed: ${payment_id}`);
+      console.error(`❌ Payment verification failed:-${payment_id}`);
       res.status(400).send(`
         <html>
           <body style="font-family: Arial; text-align: center; padding: 50px;">
