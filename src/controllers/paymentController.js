@@ -288,124 +288,336 @@ function generatePaymentPageHTML({ student, studid, amountDue, order }) {
       <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body { 
           font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-          padding: 20px; 
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
           min-height: 100vh;
-          margin: 0;
+          padding: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
+        
         .container { 
           max-width: 500px; 
-          margin: 0 auto; 
+          width: 100%;
           background: white; 
-          padding: 30px; 
-          border-radius: 15px; 
-          box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-          margin-top: 50px;
+          border-radius: 20px; 
+          box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+          overflow: hidden;
+          animation: slideUp 0.6s ease-out;
         }
+        
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(30px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        
         .header {
+          background: linear-gradient(135deg, #007cba 0%, #005a87 100%);
+          color: white;
+          padding: 30px;
           text-align: center;
-          margin-bottom: 30px;
-          color: #333;
+          position: relative;
+          overflow: hidden;
         }
+        
+        .header::before {
+          content: '';
+          position: absolute;
+          top: -50%;
+          right: -50%;
+          width: 100%;
+          height: 200%;
+          background: rgba(255,255,255,0.1);
+          transform: rotate(45deg);
+        }
+        
         .school-logo {
-          font-size: 40px;
+          font-size: 50px;
           margin-bottom: 10px;
+          position: relative;
+          z-index: 1;
         }
+        
+        .school-name {
+          font-size: 24px;
+          font-weight: bold;
+          margin-bottom: 5px;
+          position: relative;
+          z-index: 1;
+        }
+        
+        .subtitle {
+          opacity: 0.9;
+          font-size: 14px;
+          position: relative;
+          z-index: 1;
+        }
+        
+        .content {
+          padding: 30px;
+        }
+        
         .student-info { 
           background: linear-gradient(135deg, #e8f4fd 0%, #f0f8ff 100%); 
-          padding: 20px; 
-          border-radius: 10px; 
+          padding: 25px; 
+          border-radius: 15px; 
           margin-bottom: 25px;
-          border-left: 4px solid #007cba;
+          border-left: 5px solid #007cba;
+          position: relative;
         }
+        
+        .student-info::before {
+          content: '👨‍🎓';
+          position: absolute;
+          top: 15px;
+          right: 20px;
+          font-size: 30px;
+          opacity: 0.3;
+        }
+        
         .student-info h3 {
-          margin: 0 0 15px 0;
           color: #007cba;
+          margin-bottom: 15px;
+          font-size: 18px;
         }
+        
         .info-row {
           display: flex;
           justify-content: space-between;
-          margin-bottom: 8px;
+          align-items: center;
+          margin-bottom: 10px;
+          padding: 8px 0;
         }
-        .amount-highlight {
-          background: #fff3cd;
-          padding: 15px;
-          border-radius: 8px;
+        
+        .info-label {
+          font-weight: 600;
+          color: #495057;
+        }
+        
+        .info-value {
+          color: #007cba;
+          font-weight: 500;
+        }
+        
+        .balance-highlight {
+          background: linear-gradient(135deg, #fff3cd 0%, #fef8e6 100%);
+          padding: 20px;
+          border-radius: 15px;
           text-align: center;
           margin-bottom: 25px;
-          border: 1px solid #ffeaa7;
+          border: 2px solid #ffc107;
+          position: relative;
         }
-        .amount-highlight .amount {
-          font-size: 24px;
+        
+        .balance-highlight::before {
+          content: '💰';
+          position: absolute;
+          top: 10px;
+          right: 15px;
+          font-size: 25px;
+        }
+        
+        .balance-label {
+          font-size: 16px;
+          color: #856404;
+          margin-bottom: 8px;
+          font-weight: 600;
+        }
+        
+        .balance-amount {
+          font-size: 32px;
           font-weight: bold;
           color: #d63384;
+          text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
         }
+        
+        .payment-form {
+          background: #f8f9fa;
+          padding: 25px;
+          border-radius: 15px;
+          margin-bottom: 25px;
+          border: 1px solid #e9ecef;
+        }
+        
+        .form-group {
+          margin-bottom: 20px;
+        }
+        
+        .form-label {
+          display: block;
+          margin-bottom: 8px;
+          font-weight: 600;
+          color: #333;
+          font-size: 15px;
+        }
+        
+        .form-input {
+          width: 100%;
+          padding: 15px;
+          border: 2px solid #ced4da;
+          border-radius: 10px;
+          font-size: 18px;
+          transition: all 0.3s ease;
+          background: white;
+        }
+        
+        .form-input:focus {
+          border-color: #007cba;
+          outline: none;
+          box-shadow: 0 0 0 3px rgba(0,124,186,0.1);
+          transform: translateY(-1px);
+        }
+        
+        .form-hint {
+          margin-top: 8px;
+          color: #6c757d;
+          font-size: 13px;
+          display: flex;
+          align-items: center;
+          gap: 5px;
+        }
+        
         .pay-btn { 
-          background: linear-gradient(135deg, #007cba 0%, #005a87 100%); 
+          background: linear-gradient(135deg, #28a745 0%, #20c997 100%); 
           color: white; 
-          padding: 15px 30px; 
+          padding: 18px 30px; 
           border: none; 
-          border-radius: 8px; 
+          border-radius: 12px; 
           cursor: pointer; 
-          font-size: 16px; 
+          font-size: 18px; 
           width: 100%;
           font-weight: bold;
           transition: all 0.3s ease;
+          position: relative;
+          overflow: hidden;
         }
+        
         .pay-btn:hover { 
           transform: translateY(-2px);
-          box-shadow: 0 5px 15px rgba(0,124,186,0.4);
+          box-shadow: 0 8px 25px rgba(40,167,69,0.3);
         }
+        
+        .pay-btn:active {
+          transform: translateY(0);
+        }
+        
+        .pay-btn::before {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 0;
+          height: 0;
+          background: rgba(255,255,255,0.2);
+          border-radius: 50%;
+          transform: translate(-50%, -50%);
+          transition: all 0.5s ease;
+        }
+        
+        .pay-btn:hover::before {
+          width: 300px;
+          height: 300px;
+        }
+        
         .payment-methods {
-          margin-top: 20px;
           text-align: center;
-          color: #6c757d;
+          margin-top: 20px;
+          padding: 15px;
+          background: linear-gradient(135deg, #e3f2fd 0%, #f0f8ff 100%);
+          border-radius: 10px;
+          color: #495057;
           font-size: 14px;
         }
+        
+        .method-icons {
+          font-size: 20px;
+          margin-bottom: 8px;
+        }
+        
         .secure-badge {
           text-align: center;
           margin-top: 15px;
-          font-size: 12px;
-          color: #28a745;
-        }
-        .payment-form {
-          margin-top: 30px;
-          padding: 20px;
-          border-radius: 10px;
-          background: #f8f9fa;
-          box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        }
-        .amount-input {
-          margin-bottom: 15px;
-        }
-        .amount-input label {
-          display: block;
-          margin-bottom: 5px;
-          font-weight: bold;
-          color: #333;
-        }
-        .amount-input input {
-          width: 100%;
-          padding: 12px;
-          border: 2px solid #ced4da;
+          padding: 10px;
+          background: linear-gradient(135deg, #d4edda 0%, #e8f5e8 100%);
           border-radius: 8px;
-          font-size: 16px;
-          box-sizing: border-box;
+          color: #155724;
+          font-size: 13px;
+          font-weight: 500;
         }
-        .amount-input input:focus {
-          border-color: #007cba;
-          outline: none;
+        
+        .features {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 15px;
+          margin-top: 20px;
         }
-        .amount-input small {
-          display: block;
-          margin-top: 8px;
+        
+        .feature {
+          text-align: center;
+          padding: 15px;
+          background: white;
+          border-radius: 10px;
+          border: 1px solid #e9ecef;
+        }
+        
+        .feature-icon {
+          font-size: 24px;
+          margin-bottom: 5px;
+        }
+        
+        .feature-text {
+          font-size: 12px;
           color: #6c757d;
-          font-size: 14px;
         }
+        
         @media (max-width: 600px) {
-          .container { margin: 20px; padding: 20px; }
+          .container { 
+            margin: 10px; 
+            border-radius: 15px;
+          }
+          .content { 
+            padding: 20px; 
+          }
+          .header {
+            padding: 20px;
+          }
+          .school-logo {
+            font-size: 40px;
+          }
+          .school-name {
+            font-size: 20px;
+          }
+          .balance-amount {
+            font-size: 28px;
+          }
+          .features {
+            grid-template-columns: 1fr;
+          }
+        }
+        
+        .loading {
+          opacity: 0.7;
+          pointer-events: none;
+        }
+        
+        .spinner {
+          display: none;
+          width: 20px;
+          height: 20px;
+          border: 2px solid #ffffff;
+          border-top: 2px solid transparent;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin-right: 10px;
+        }
+        
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
         }
       </style>
     </head>
@@ -413,72 +625,109 @@ function generatePaymentPageHTML({ student, studid, amountDue, order }) {
       <div class="container">
         <div class="header">
           <div class="school-logo">🏫</div>
-          <h2>${process.env.SCHOOL_NAME || "School"}</h2>
-          <p style="color: #6c757d;">Secure Fee Payment Portal</p>
+          <div class="school-name">${process.env.SCHOOL_NAME || "School"}</div>
+          <div class="subtitle">Secure Fee Payment Portal</div>
         </div>
         
-        <div class="student-info">
-          <h3>📋 Student Details</h3>
-          <div class="info-row">
-            <span><strong>Name:</strong></span>
-            <span>${student.name}</span>
+        <div class="content">
+          <div class="student-info">
+            <h3>📋 Student Information</h3>
+            <div class="info-row">
+              <span class="info-label">Student Name:</span>
+              <span class="info-value">${student.name}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Class:</span>
+              <span class="info-value">${student.class}</span>
+            </div>
+            <div class="info-row">
+              <span class="info-label">Student ID:</span>
+              <span class="info-value">${studid}</span>
+            </div>
           </div>
-          <div class="info-row">
-            <span><strong>Class:</strong></span>
-            <span>${student.class}</span>
+          
+          <div class="balance-highlight">
+            <div class="balance-label">Outstanding Balance</div>
+            <div class="balance-amount">₹${amountDue}</div>
           </div>
-          <div class="info-row">
-            <span><strong>Student ID:</strong></span>
-            <span>${studid}</span>
-          </div>
-        </div>
-        
-        <div class="amount-highlight">
-          <div>Outstanding Amount</div>
-          <div class="amount">₹${amountDue}</div>
-        </div>
-        
-        <div class="payment-form">
-          <div class="amount-input">
-            <label for="paymentAmount">Enter Payment Amount (₹)</label>
-            <input 
-              type="number" 
-              id="paymentAmount" 
-              name="amount" 
-              min="1" 
-              max="${amountDue}" 
-              placeholder="Enter amount to pay"
-              value="${amountDue}"
-              required
-            />
-            <small>Minimum: ₹1, Maximum: ₹${amountDue}</small>
+          
+          <div class="payment-form">
+            <div class="form-group">
+              <label class="form-label" for="paymentAmount">💳 Enter Payment Amount</label>
+              <input 
+                type="number" 
+                id="paymentAmount" 
+                name="amount" 
+                class="form-input"
+                min="1" 
+                max="${amountDue}" 
+                placeholder="Enter amount to pay"
+                value="${amountDue}"
+                required
+              />
+              <div class="form-hint">
+                ℹ️ Minimum: ₹1 • Maximum: ₹${amountDue}
+              </div>
+            </div>
+
+            <button id="pay-btn" class="pay-btn">
+              <span class="spinner"></span>
+              <span class="btn-text">💳 Pay ₹${amountDue} Now</span>
+            </button>
           </div>
 
-          <button id="pay-btn" class="pay-btn">
-            💳 Pay Now
-          </button>
-        </div>
-
-        <div class="payment-methods">
-          💳 Card • 📱 UPI • 🏦 Net Banking • 💰 Wallet
-        </div>
-        
-        <div class="secure-badge">
-          🔒 Secured by Razorpay • SSL Encrypted
+          <div class="payment-methods">
+            <div class="method-icons">💳 📱 🏦 💰</div>
+            <div>Credit/Debit Card • UPI • Net Banking • Wallets</div>
+          </div>
+          
+          <div class="features">
+            <div class="feature">
+              <div class="feature-icon">🔒</div>
+              <div class="feature-text">256-bit SSL Encrypted</div>
+            </div>
+            <div class="feature">
+              <div class="feature-icon">⚡</div>
+              <div class="feature-text">Instant Processing</div>
+            </div>
+            <div class="feature">
+              <div class="feature-icon">📄</div>
+              <div class="feature-text">Digital Receipt</div>
+            </div>
+            <div class="feature">
+              <div class="feature-icon">🛡️</div>
+              <div class="feature-text">Secure by Razorpay</div>
+            </div>
+          </div>
+          
+          <div class="secure-badge">
+            🔒 Payments secured by Razorpay • PCI DSS Compliant
+          </div>
         </div>
         
         <script>
-          // Update button text when amount changes
           const paymentAmountInput = document.getElementById('paymentAmount');
           const payButton = document.getElementById('pay-btn');
+          const btnText = document.querySelector('.btn-text');
+          const spinner = document.querySelector('.spinner');
           
+          // Update button text when amount changes
           paymentAmountInput.addEventListener('input', function() {
             const amount = this.value;
             if (amount && amount > 0) {
-              payButton.textContent = '💳 Pay ₹' + amount + ' Now';
+              btnText.textContent = '💳 Pay ₹' + amount + ' Now';
             } else {
-              payButton.textContent = '💳 Pay Now';
+              btnText.textContent = '💳 Pay Now';
             }
+          });
+
+          // Add input animation
+          paymentAmountInput.addEventListener('focus', function() {
+            this.parentElement.style.transform = 'scale(1.02)';
+          });
+          
+          paymentAmountInput.addEventListener('blur', function() {
+            this.parentElement.style.transform = 'scale(1)';
           });
 
           document.getElementById('pay-btn').addEventListener('click', function(e) {
@@ -489,14 +738,19 @@ function generatePaymentPageHTML({ student, studid, amountDue, order }) {
             
             // Validation
             if (!paymentAmount || paymentAmount <= 0) {
-              alert('Please enter a valid payment amount');
+              alert('⚠️ Please enter a valid payment amount');
               return;
             }
             
             if (parseFloat(paymentAmount) > maxAmount) {
-              alert('Payment amount cannot exceed outstanding balance of ₹' + maxAmount);
+              alert('⚠️ Payment amount cannot exceed outstanding balance of ₹' + maxAmount);
               return;
             }
+            
+            // Show loading state
+            this.classList.add('loading');
+            spinner.style.display = 'inline-block';
+            btnText.textContent = 'Processing...';
             
             // Create new order with custom amount
             fetch('/api/payments/create-order', {
@@ -506,25 +760,30 @@ function generatePaymentPageHTML({ student, studid, amountDue, order }) {
               },
               body: JSON.stringify({
                 amount: paymentAmount,
-                studid: '${studid}' // Make sure this is properly passed
+                studid: '${studid}'
               })
             })
             .then(response => response.json())
             .then(data => {
+              // Reset loading state
+              payButton.classList.remove('loading');
+              spinner.style.display = 'none';
+              btnText.textContent = '💳 Pay ₹' + paymentAmount + ' Now';
+              
               if (data.error) {
-                alert('Error: ' + data.error);
+                alert('❌ Error: ' + data.error);
                 return;
               }
               
               var options = {
                 key: '${process.env.RAZORPAY_KEY_ID}',
-                amount: Math.round(parseFloat(paymentAmount) * 100), // Use user input amount
+                amount: Math.round(parseFloat(paymentAmount) * 100),
                 currency: 'INR',
                 order_id: data.order_id,
                 name: '${process.env.SCHOOL_NAME || "School"}',
                 description: 'Fee Payment for ${student.name}',
+                image: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjQiIGhlaWdodD0iNjQiIHZpZXdCb3g9IjAgMCA2NCA2NCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjY0IiBoZWlnaHQ9IjY0IiByeD0iMTIiIGZpbGw9IiMwMDdjYmEiLz4KPHN2ZyB4PSIxNiIgeT0iMTYiIHdpZHRoPSIzMiIgaGVpZ2h0PSIzMiIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJ3aGl0ZSI+CjxwYXRoIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0tMiAxNWwtNS01aDNWOWgzdjNsMy0zaDN2M2gzbC01IDV6Ii8+Cjwvc3ZnPgo8L3N2Zz4K',
                 handler: function(response) {
-                  // Fix: Ensure all required parameters are passed
                   const params = new URLSearchParams({
                     payment_id: response.razorpay_payment_id,
                     order_id: response.razorpay_order_id,
@@ -544,19 +803,31 @@ function generatePaymentPageHTML({ student, studid, amountDue, order }) {
                 modal: {
                   ondismiss: function() {
                     console.log('Payment modal closed');
+                    // Reset button state
+                    payButton.classList.remove('loading');
+                    spinner.style.display = 'none';
+                    btnText.textContent = '💳 Pay ₹' + paymentAmount + ' Now';
                   }
                 }
               };
               
               var rzp = new Razorpay(options);
               rzp.on('payment.failed', function(response) {
-                alert('Payment failed: ' + response.error.description);
+                alert('❌ Payment failed: ' + response.error.description);
+                // Reset button state
+                payButton.classList.remove('loading');
+                spinner.style.display = 'none';
+                btnText.textContent = '💳 Pay ₹' + paymentAmount + ' Now';
               });
               rzp.open();
             })
             .catch(error => {
               console.error('Error:', error);
-              alert('Unable to process payment. Please try again.');
+              alert('❌ Unable to process payment. Please try again.');
+              // Reset button state
+              payButton.classList.remove('loading');
+              spinner.style.display = 'none';
+              btnText.textContent = '💳 Pay ₹' + paymentAmount + ' Now';
             });
           });
 
