@@ -111,9 +111,15 @@ export const verifyPaymentSuccess = async (req, res) => {
         const studid = order.notes.studid;
         const amount_paid = parseFloat(amount);
 
-        // Process payment through AI system (bypass confirmation)
-        await processPaymentThroughAI(studid, amount_paid, payment_id);
-        
+        // Process payment through existing webhook function (avoid duplication)
+        const paymentEntity = {
+          id: payment_id,
+          order_id: order_id,
+          amount: amount_paid * 100, // Convert to paisa for consistency
+        };
+
+        await processPaymentSuccess(paymentEntity);
+
         console.log(`✅ Payment processed for student: ${studid}`);
       } catch (processingError) {
         console.error("❌ Payment processing error:", processingError.message);
@@ -226,15 +232,21 @@ Remarks: Transaction ID: ${payment.id}`;
     const result = await processAIData(parsedData);
 
     if (result.success) {
-      console.log("✅ Webhook payment processed successfully");
-      await sendPaymentConfirmation(studid, amount_paid, payment.id);
+      console.log("✅ Payment processed and invoice sent automatically");
+      // REMOVE THIS LINE - it's causing the duplicate message
+      // await sendPaymentConfirmation(studid, amount_paid, payment.id);
+
+      return {
+        success: true,
+        message: "Payment processed successfully",
+        transaction_id: payment.id,
+      };
     } else {
-      console.error("❌ AI processing failed");
-      // Log the failure but don't throw to avoid webhook retry
+      throw new Error("Payment processing failed");
     }
   } catch (error) {
-    console.error("❌ Webhook processing error:", error.message);
-    // Don't throw error to avoid webhook retry loops
+    console.error("❌ Payment processing error:", error);
+    throw error;
   }
 }
 
@@ -245,8 +257,8 @@ async function sendPaymentConfirmation(studid, amount_paid, transaction_id) {
     if (student && student.parent_no) {
       // Format phone number to include country code
       let phoneNumber = student.parent_no.toString();
-      if (!phoneNumber.startsWith('91')) {
-        phoneNumber = '91' + phoneNumber;
+      if (!phoneNumber.startsWith("91")) {
+        phoneNumber = "91" + phoneNumber;
       }
 
       // Get updated fee status
@@ -257,7 +269,9 @@ async function sendPaymentConfirmation(studid, amount_paid, transaction_id) {
 
 Dear Parent,
 
-We have received ₹${amount_paid} on ${new Date().toISOString().split('T')[0]} for ${student.name} (${student.class}).
+We have received ₹${amount_paid} on ${
+        new Date().toISOString().split("T")[0]
+      } for ${student.name} (${student.class}).
 
 *Payment Details:*
 • Amount: ₹${amount_paid}
@@ -276,7 +290,7 @@ Thank you!
       console.log(`⚠️ No parent contact found for: ${studid}`);
     }
   } catch (error) {
-    // Handle WhatsApp restrictions gracefully  
+    // Handle WhatsApp restrictions gracefully
     if (error.response?.data?.error?.code === 131030) {
       console.log(`⚠️ WhatsApp: Phone number not in allowed list`);
     } else {
@@ -1073,31 +1087,31 @@ export const verifyPayment = async (req, res) => {
 async function processPaymentThroughAI(studid, amount_paid, transaction_id) {
   try {
     console.log(`🤖 Processing AI payment for: ${studid} (₹${amount_paid})`);
-    
+
     // Create AI command similar to your existing format
     const aiCommand = `Add installment
 Student ID: ${studid}
 Amount: ${amount_paid}
 Mode: Online
 Recorded by: Razorpay: ${transaction_id}
-Date: ${new Date().toISOString().split('T')[0]}`;
+Date: ${new Date().toISOString().split("T")[0]}`;
 
     // Import the processWebhookPayment function that bypasses confirmation
     const { processWebhookPayment } = await import("../services/aiService.js");
-    
+
     // Process through your existing webhook payment function (bypasses confirmation)
     const result = await processWebhookPayment(aiCommand);
-    
+
     if (result.success) {
       console.log("✅ AI payment processing completed");
-      
+
       // Send payment confirmation to parent
       await sendPaymentConfirmation(studid, amount_paid, transaction_id);
     } else {
       console.error("❌ AI processing failed");
       throw new Error("Payment processing failed");
     }
-    
+
     return result;
   } catch (error) {
     console.error("❌ AI payment processing error:", error.message);
