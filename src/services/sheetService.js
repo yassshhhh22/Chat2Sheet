@@ -25,18 +25,6 @@ function createFeeSheetHeaders() {
   ];
 }
 
-function formatFeeSheetData(studentData) {
-  return studentData.map((student) => [
-    student.name,
-    student.rollNumber,
-    student.class,
-    student.feeAmount,
-    student.paymentStatus,
-    student.remarks,
-    // Removed: student.dueDate, student.lastPaymentDate
-  ]);
-}
-
 // Main function to process AI-parsed data
 export async function processAIData(parsedData, rawMessage = "", isConfirmed = false) {
   try {

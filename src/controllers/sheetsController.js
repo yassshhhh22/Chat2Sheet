@@ -17,7 +17,7 @@ import {
   generateInvoicePDF,
   cleanupInvoiceFile,
 } from "../services/invoiceService.js";
-import { sendInvoicePDF } from "../services/whatsappService.js";
+import { sendInvoiceDocument } from "../services/whatsappService.js"; // ✅ Correct function name
 
 export async function addStudent(data) {
   try {
@@ -32,10 +32,6 @@ export async function addStudent(data) {
       created_at: new Date().toISOString(),
     };
 
-    console.log("📝 Complete student data:", studentData);
-
-    // Remove the duplicate addStudentToSheet call - it's already done above
-
     // Add corresponding fee record if total_fees is provided
     if (data.total_fees) {
       const feeData = {
@@ -49,8 +45,25 @@ export async function addStudent(data) {
       };
 
       console.log("💰 Adding fee record:", feeData);
-      await addFeesSummaryRecord(feeData);
+      // ISSUE: Wrong function call - should pass individual parameters
+      await addFeesSummaryRecord(
+        studentId,
+        data.name,
+        data.class,
+        data.total_fees
+      );
     }
+
+    // ISSUE: Missing log action call
+    await logAction(
+      "add_student",
+      studentId,
+      `Student ${data.name} added successfully`,
+      data,
+      "success",
+      "",
+      data.recorded_by || "system"
+    );
 
     console.log("✅ Student added successfully");
 
@@ -62,6 +75,18 @@ export async function addStudent(data) {
     };
   } catch (error) {
     console.error("❌ Error adding student:", error);
+
+    // Log the error
+    await logAction(
+      "add_student",
+      "",
+      `Failed to add student ${data.name}`,
+      data,
+      "error",
+      error.message,
+      data.recorded_by || "system"
+    );
+
     return {
       success: false,
       error: error.message,
@@ -226,7 +251,7 @@ Thank you!
     // Send invoice to parent (if parent phone exists)
     if (formattedParentPhone) {
       console.log("📱 Sending invoice to parent:", formattedParentPhone);
-      await sendInvoicePDF(formattedParentPhone, pdfPath, caption);
+      await sendInvoiceDocument(formattedParentPhone, pdfPath, caption);
       console.log("✅ Invoice sent to parent successfully");
     } else {
       console.log(
@@ -524,7 +549,11 @@ async function processInvoiceGeneration(installmentData, studentData) {
       studentData.phone_no || studentData.parent_no
     );
     if (formattedParentPhone) {
-      await sendInvoicePDF(formattedParentPhone, pdfPath, studentData.name);
+      await sendInvoiceDocument(
+        formattedParentPhone,
+        pdfPath,
+        studentData.name
+      );
       console.log("✅ Invoice sent to parent:", formattedParentPhone);
     } else {
       console.log(
