@@ -34,7 +34,7 @@ app.get("/", (req, res) => {
 
 const PORT = process.env.PORT;
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🚀 Server Running on port ${PORT}`);
 
   // Start keep-alive service in production
   if (process.env.RENDER_SERVICE_NAME) {
