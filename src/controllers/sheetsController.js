@@ -19,7 +19,7 @@ import {
 } from "../services/invoiceService.js";
 import { sendInvoiceDocument } from "../services/whatsappService.js"; // ✅ Correct function name
 
-export async function addStudent(data) {
+export async function addStudent(data, feeData = null) {
   try {
     console.log("📝 Adding student with data:", data);
 
@@ -32,25 +32,32 @@ export async function addStudent(data) {
       created_at: new Date().toISOString(),
     };
 
-    // Add corresponding fee record if total_fees is provided
-    if (data.total_fees) {
-      const feeData = {
-        stud_id: studentId,
-        name: data.name,
-        class: data.class,
+    // Add corresponding fee record if feeData is provided or if total_fees exists in data
+    if (feeData || data.total_fees) {
+      const feeRecord = feeData || {
         total_fees: data.total_fees,
         total_paid: "0",
         balance: data.total_fees,
         status: "unpaid",
       };
 
-      console.log("💰 Adding fee record:", feeData);
-      // ISSUE: Wrong function call - should pass individual parameters
+      const feeDataToAdd = {
+        stud_id: studentId,
+        name: data.name,
+        class: data.class,
+        total_fees: feeRecord.total_fees,
+        total_paid: feeRecord.total_paid || "0",
+        balance: feeRecord.balance || feeRecord.total_fees,
+        status: feeRecord.status || "unpaid",
+      };
+
+      console.log("💰 Adding fee record:", feeDataToAdd);
+
       await addFeesSummaryRecord(
         studentId,
         data.name,
         data.class,
-        data.total_fees
+        feeRecord.total_fees
       );
     }
 

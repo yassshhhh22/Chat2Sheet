@@ -26,13 +26,18 @@ function createFeeSheetHeaders() {
 }
 
 // Main function to process AI-parsed data
-export async function processAIData(parsedData, rawMessage = "", isConfirmed = false) {
+export async function processAIData(
+  parsedData,
+  rawMessage = "",
+  isConfirmed = false
+) {
   try {
     console.log("📊 Processing AI data:", JSON.stringify(parsedData, null, 2));
 
     const results = {
       students: [],
       installments: [],
+      fees: [], // Add fees array to results
       logs: [],
       success: true,
       message: "Data processed successfully",
@@ -45,9 +50,23 @@ export async function processAIData(parsedData, rawMessage = "", isConfirmed = f
       for (const studentData of parsedData.Students) {
         try {
           console.log("Adding student:", studentData);
-          const studentResult = await addStudent(studentData);
+
+          // Find corresponding fee record
+          let correspondingFee = null;
+          if (parsedData.Fees && parsedData.Fees.length > 0) {
+            correspondingFee = parsedData.Fees.find(
+              (fee) =>
+                fee.name === studentData.name ||
+                fee.stud_id === studentData.stud_id
+            );
+          }
+
+          // Pass fee data to addStudent function
+          const studentResult = await addStudent(studentData, correspondingFee);
           results.students.push(studentResult);
           console.log("✅ Student added:", studentResult);
+
+          // Remove the duplicate fee processing logic since it's now handled in addStudent
         } catch (error) {
           console.error("❌ Error adding student:", error);
           results.students.push({
@@ -70,10 +89,13 @@ export async function processAIData(parsedData, rawMessage = "", isConfirmed = f
         try {
           // Validate student ID or name before processing
           if (!installmentData.stud_id && !installmentData.name) {
-            console.error("❌ Invalid installment data: No student ID or name provided");
+            console.error(
+              "❌ Invalid installment data: No student ID or name provided"
+            );
             results.installments.push({
               success: false,
-              error: "Invalid student ID or name provided. Please specify either student ID or student name.",
+              error:
+                "Invalid student ID or name provided. Please specify either student ID or student name.",
               data: installmentData,
             });
             continue;
@@ -82,13 +104,16 @@ export async function processAIData(parsedData, rawMessage = "", isConfirmed = f
           // Ensure required fields are populated
           const completeInstallmentData = {
             ...installmentData,
-            date: installmentData.date || new Date().toISOString().split("T")[0],
+            date:
+              installmentData.date || new Date().toISOString().split("T")[0],
             mode: installmentData.mode || "cash",
             remarks: installmentData.remarks || "",
             recorded_by: installmentData.recorded_by || "WhatsApp",
           };
 
-          const installmentResult = await addInstallment(completeInstallmentData);
+          const installmentResult = await addInstallment(
+            completeInstallmentData
+          );
           results.installments.push(installmentResult);
 
           console.log("✅ Installment added:", installmentResult);
@@ -104,41 +129,45 @@ export async function processAIData(parsedData, rawMessage = "", isConfirmed = f
     }
 
     // Generate success message based on what was processed
-    if (results.students.length > 0 && results.students.every(s => s.success)) {
+    if (
+      results.students.length > 0 &&
+      results.students.every((s) => s.success)
+    ) {
       let successMessage = "✅ *Data processed successfully!*\n\n";
       successMessage += "👨‍🎓 *Students Added:*\n";
-      
-      results.students.forEach(student => {
+
+      results.students.forEach((student) => {
         // Access the correct stud_id from the addStudent response
         const studentId = student.stud_id; // This comes directly from addStudent return
         const studentName = student.data.name;
         successMessage += `• ${studentName} (${studentId})\n`;
       });
-      
+
       successMessage += "\nData has been updated in the Google Sheets! 📊";
       results.message = successMessage;
     }
 
     // Generate better success message for installments
-    const successfulInstallments = results.installments.filter(i => i.success);
-    
+    const successfulInstallments = results.installments.filter(
+      (i) => i.success
+    );
+
     if (successfulInstallments.length > 0) {
       let successMessage = "✅ *Payment processed successfully!*\n\n";
       successMessage += "💰 *Installments Added:*\n";
-      
-      successfulInstallments.forEach(inst => {
+
+      successfulInstallments.forEach((inst) => {
         const studentName = inst.student_name || inst.data?.name || "Student";
         const amount = inst.data?.installment_amount || inst.amount || "0";
         successMessage += `• ₹${amount} for ${studentName}\n`;
       });
-      
+
       successMessage += "\n📊 Data has been updated in the Google Sheets! 📋";
-      
+
       results.message = successMessage;
     }
 
     return results;
-
   } catch (error) {
     console.error("❌ Error in processAIData:", error);
     throw error;
