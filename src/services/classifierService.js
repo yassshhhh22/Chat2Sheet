@@ -53,7 +53,7 @@ Examples:
 - "Send reminder to STU123" → {"operation": "REMIND_SPECIFIC", "confidence": 0.9, "student_id": "STU123"}`;
 
     const response = await groq.chat.completions.create({
-      model: "llama3-8b-8192",
+      model: "llama-3.3-70b-versatile",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.1,
       max_tokens: 150,
